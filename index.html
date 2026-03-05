@@ -8,27 +8,31 @@
     :root{
       --bg:#0b1220; --card:#0f1b33; --text:#e7eefc; --muted:#9bb0d3;
       --me:#2b6cff; --bot:#1d2a48; --agent:#19b37a; --border:#22345f;
-      --danger:#ff4d4d;
+      --warn:#ffb020; --danger:#ff4d4d; --ok:#19b37a;
     }
     *{box-sizing:border-box}
     body{margin:0;font-family:system-ui,Segoe UI,Arial;background:linear-gradient(180deg,#070c16,#0b1220);color:var(--text)}
     .wrap{max-width:980px;margin:0 auto;padding:18px}
-    .top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
     .badge{font-size:12px;padding:6px 10px;border:1px solid var(--border);border-radius:999px;color:var(--muted)}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     .card{margin-top:14px;background:rgba(15,27,51,.85);border:1px solid var(--border);border-radius:16px;overflow:hidden}
     .chat{height:70vh;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
     .msg{max-width:78%;padding:10px 12px;border-radius:14px;line-height:1.25;border:1px solid transparent}
     .me{align-self:flex-end;background:rgba(43,108,255,.18);border-color:rgba(43,108,255,.35)}
     .bot{align-self:flex-start;background:rgba(29,42,72,.9);border-color:rgba(34,52,95,.9)}
     .agent{align-self:flex-start;background:rgba(25,179,122,.14);border-color:rgba(25,179,122,.35)}
+    .sys{align-self:center;background:rgba(255,176,32,.12);border-color:rgba(255,176,32,.25);max-width:92%}
     .meta{font-size:11px;color:var(--muted);margin-top:4px}
     .bar{display:flex;gap:10px;padding:12px;border-top:1px solid var(--border);background:rgba(10,16,30,.65)}
     input{flex:1;padding:12px 12px;border-radius:12px;border:1px solid var(--border);background:#0a142a;color:var(--text);outline:none}
     button{padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:#0c1a35;color:var(--text);cursor:pointer}
     button:hover{filter:brightness(1.08)}
-    .danger{border-color:rgba(255,77,77,.35);background:rgba(255,77,77,.12)}
-    .row{display:flex;gap:10px;flex-wrap:wrap}
     .hint{font-size:12px;color:var(--muted)}
+    .prio{font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);color:var(--muted)}
+    .prio.low{border-color:rgba(25,179,122,.35);color:#a8f0d7;background:rgba(25,179,122,.10)}
+    .prio.med{border-color:rgba(255,176,32,.35);color:#ffe2a6;background:rgba(255,176,32,.10)}
+    .prio.high{border-color:rgba(255,77,77,.35);color:#ffb3b3;background:rgba(255,77,77,.10)}
   </style>
 </head>
 <body>
@@ -36,11 +40,13 @@
     <div class="top">
       <div>
         <h2 style="margin:0 0 6px">Chat (Usuário)</h2>
-        <div class="hint">Dica: abra também o <b>agent.html</b> em outra aba para simular o atendente.</div>
+        <div class="hint">Abra também o <b>agent.html</b> em outra aba para simular o atendente.</div>
       </div>
       <div class="row">
         <span class="badge" id="statusBadge">Status: Chatbot</span>
         <span class="badge">Sessão: <span id="sid"></span></span>
+        <span class="badge">Nome: <span id="uname">—</span></span>
+        <span class="prio low" id="prioPill" style="display:none"></span>
       </div>
     </div>
 
@@ -55,118 +61,215 @@
 
 <script>
 (() => {
-  // --- Sessão simples (ID persistente por navegador) ---
+  // ========= Sessão =========
   const sessionId = localStorage.getItem("demo_session_id")
     || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
   localStorage.setItem("demo_session_id", sessionId);
   document.getElementById("sid").textContent = sessionId.slice(0, 8);
 
-  // --- Canal entre abas ---
-  const bc = new BroadcastChannel("support_chat_demo_v1");
+  const bc = new BroadcastChannel("support_chat_demo_v2");
 
-  // --- Estado ---
-  let mode = "bot"; // "bot" | "waiting" | "agent"
-  let agentConnected = false;
-
+  // ========= UI =========
   const $chat = document.getElementById("chat");
   const $text = document.getElementById("text");
   const $send = document.getElementById("send");
   const $badge = document.getElementById("statusBadge");
+  const $uname = document.getElementById("uname");
+  const $prioPill = document.getElementById("prioPill");
 
-  function setBadge() {
-    if (mode === "bot") $badge.textContent = "Status: Chatbot";
-    if (mode === "waiting") $badge.textContent = "Status: Aguardando atendente…";
-    if (mode === "agent") $badge.textContent = "Status: Em atendimento humano";
-  }
+  // ========= Estado =========
+  let mode = "bot"; // bot | wizard | waiting | agent
+  let agentConnected = false;
 
-  function addMsg(who, text) {
-    const el = document.createElement("div");
-    el.className = `msg ${who}`;
-    el.innerHTML = `<div>${escapeHtml(text)}</div>
-      <div class="meta">${who === "me" ? "Você" : who === "bot" ? "Chatbot" : "Atendente"}</div>`;
-    $chat.appendChild(el);
-    $chat.scrollTop = $chat.scrollHeight;
-  }
+  // wizard steps
+  // 0 nome -> 1 assunto -> 2 prioridade -> 3 descrição -> encaminhar
+  let wizardStep = 0;
 
+  const ticket = {
+    name: localStorage.getItem("demo_user_name") || "",
+    topic: "",
+    priority: "",
+    description: "",
+    createdAt: null,   // handoff request time
+  };
+
+  // ========= Helpers =========
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, (m) => ({
       "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
     }[m]));
   }
 
-  // --- Chatbot super simples (regras) ---
-  function botReply(userText) {
-    const t = userText.toLowerCase();
+  function addMsg(kind, text) {
+    const el = document.createElement("div");
+    el.className = `msg ${kind}`;
+    el.innerHTML = `<div>${escapeHtml(text)}</div><div class="meta">${labelOf(kind)}</div>`;
+    $chat.appendChild(el);
+    $chat.scrollTop = $chat.scrollHeight;
+  }
 
-    // gatilhos para encaminhar
-    const wantsHuman = ["atendente", "humano", "pessoa", "suporte", "ajuda", "urgente"].some(k => t.includes(k));
+  function labelOf(kind){
+    if (kind === "me") return "Você";
+    if (kind === "bot") return "Chatbot";
+    if (kind === "agent") return "Atendente";
+    return "Sistema";
+  }
 
-    if (wantsHuman) {
+  function setBadge() {
+    if (mode === "bot") $badge.textContent = "Status: Chatbot";
+    if (mode === "wizard") $badge.textContent = "Status: Coletando informações…";
+    if (mode === "waiting") $badge.textContent = "Status: Aguardando atendente…";
+    if (mode === "agent") $badge.textContent = "Status: Em atendimento humano";
+  }
+
+  function setNameUI() {
+    $uname.textContent = ticket.name ? ticket.name : "—";
+  }
+
+  function setPrioUI() {
+    if (!ticket.priority) { $prioPill.style.display = "none"; return; }
+    $prioPill.style.display = "inline-block";
+    $prioPill.className = `prio ${ticket.priority}`;
+    $prioPill.textContent =
+      ticket.priority === "low" ? "Prioridade: Baixa" :
+      ticket.priority === "med" ? "Prioridade: Média" :
+      "Prioridade: Alta";
+  }
+
+  function normalizePriority(txt) {
+    const t = txt.toLowerCase().trim();
+    if (["alta","alto","high","h","3"].includes(t)) return "high";
+    if (["media","média","med","m","2"].includes(t)) return "med";
+    if (["baixa","baixo","low","l","1"].includes(t)) return "low";
+    return "";
+  }
+
+  // ========= Chatbot / Wizard =========
+  function startWizard() {
+    mode = "wizard";
+    wizardStep = 0;
+    setBadge();
+    addMsg("bot", "Antes de te encaminhar, vou coletar rapidinho algumas informações 🙂");
+    if (!ticket.name) {
+      addMsg("bot", "1/4 — Qual é o seu *nome*?");
+    } else {
+      // se já tinha nome salvo, pula
+      wizardStep = 1;
+      addMsg("bot", `1/4 — Confirmando: seu nome é "${ticket.name}".`);
+      addMsg("bot", "2/4 — Sobre o que é o atendimento? (ex: acesso, erro, cobrança, dúvida)");
+    }
+  }
+
+  function handleWizardInput(userText) {
+    const txt = userText.trim();
+
+    if (wizardStep === 0) {
+      ticket.name = txt.slice(0, 60);
+      localStorage.setItem("demo_user_name", ticket.name);
+      setNameUI();
+      wizardStep = 1;
+      addMsg("bot", `Perfeito, ${ticket.name}!`);
+      addMsg("bot", "2/4 — Sobre o que é o atendimento? (ex: acesso, erro, cobrança, dúvida)");
+      return;
+    }
+
+    if (wizardStep === 1) {
+      ticket.topic = txt.slice(0, 80);
+      wizardStep = 2;
+      addMsg("bot", "3/4 — Qual a prioridade? Responda: *baixa*, *média* ou *alta*.");
+      return;
+    }
+
+    if (wizardStep === 2) {
+      const p = normalizePriority(txt);
+      if (!p) {
+        addMsg("sys", "Escolha uma opção válida: baixa / média / alta.");
+        return;
+      }
+      ticket.priority = p;
+      setPrioUI();
+      wizardStep = 3;
+      addMsg("bot", "4/4 — Descreva o problema (o máximo que puder em uma mensagem).");
+      return;
+    }
+
+    if (wizardStep === 3) {
+      ticket.description = txt.slice(0, 1200);
+
+      // Handoff
+      ticket.createdAt = Date.now();
       mode = "waiting";
       setBadge();
-      addMsg("bot", "Certo — vou te encaminhar para um atendente. Só um momento…");
 
-      // avisa o atendente que tem alguém esperando
+      addMsg("bot", "Obrigado! Vou te encaminhar para um atendente agora. Só um momento…");
+
       bc.postMessage({
         type: "handoff_request",
         sessionId,
-        preview: userText.slice(0, 140),
+        ticket: {
+          name: ticket.name,
+          topic: ticket.topic,
+          priority: ticket.priority,
+          description: ticket.description,
+          createdAt: ticket.createdAt
+        },
         ts: Date.now()
       });
 
-      // ping para “acordar” atendente
-      bc.postMessage({ type: "ping", sessionId, ts: Date.now() });
-
       return;
     }
-
-    // respostas básicas
-    if (t.includes("oi") || t.includes("olá") || t.includes("bom dia") || t.includes("boa tarde") || t.includes("boa noite")) {
-      addMsg("bot", "Oi! Eu sou um bot simples 🙂 Me diga em poucas palavras o que você precisa. Se quiser falar com um humano, digite: atendente.");
-      return;
-    }
-
-    if (t.includes("preço") || t.includes("valor")) {
-      addMsg("bot", "Entendi! Você quer saber sobre preços/valores. Qual é o item/serviço específico?");
-      return;
-    }
-
-    if (t.includes("problema") || t.includes("erro")) {
-      addMsg("bot", "Poxa! Qual erro aparece (ou o que acontece)? Se puder, descreva o passo a passo.");
-      return;
-    }
-
-    addMsg("bot", "Beleza. Me dá mais um detalhe? (Se quiser atendimento humano, digite: atendente.)");
   }
 
-  // --- Envio de mensagem ---
+  function botReply(userText) {
+    const t = userText.toLowerCase();
+
+    // comando para atendimento humano
+    const wantsHuman = ["atendente", "humano", "pessoa", "suporte", "ajuda", "urgente"].some(k => t.includes(k));
+    if (wantsHuman) {
+      startWizard();
+      return;
+    }
+
+    // “bot simples” fora do wizard
+    if (t.includes("oi") || t.includes("olá") || t.includes("bom dia") || t.includes("boa tarde") || t.includes("boa noite")) {
+      addMsg("bot", "Oi! Quer falar com um atendente? Digite: atendente. Se preferir, me conte aqui o que precisa 🙂");
+      return;
+    }
+
+    addMsg("bot", "Entendi. Se você quiser atendimento humano, digite: atendente (eu vou coletar 4 infos rápidas antes).");
+  }
+
+  // ========= Mensagens =========
   function send() {
     const txt = $text.value.trim();
     if (!txt) return;
     $text.value = "";
     addMsg("me", txt);
 
+    if (mode === "wizard") {
+      handleWizardInput(txt);
+      return;
+    }
+
     if (mode === "bot") {
       botReply(txt);
       return;
     }
 
-    // se está esperando e ainda não conectou, continua esperando
     if (mode === "waiting" && !agentConnected) {
       addMsg("bot", "Recebi sua mensagem. O atendente ainda não entrou — já já ele aparece.");
-      // mantém mensagens em “fila” via canal
       bc.postMessage({ type:"user_message", sessionId, text: txt, ts: Date.now() });
       return;
     }
 
-    // em atendimento humano
+    // modo agent
     bc.postMessage({ type:"user_message", sessionId, text: txt, ts: Date.now() });
   }
 
   $send.addEventListener("click", send);
   $text.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
 
-  // --- Recebe mensagens do atendente ---
+  // ========= Recebe do atendente =========
   bc.onmessage = (ev) => {
     const msg = ev.data || {};
     if (msg.sessionId && msg.sessionId !== sessionId) return;
@@ -175,7 +278,7 @@
       agentConnected = true;
       mode = "agent";
       setBadge();
-      addMsg("agent", "Olá! Sou o atendente. Pode me explicar o que você precisa?");
+      addMsg("agent", "Olá! Sou o atendente. Já vi suas informações. Pode complementar algo se quiser.");
     }
 
     if (msg.type === "agent_message") {
@@ -184,11 +287,21 @@
       setBadge();
       addMsg("agent", msg.text || "");
     }
+
+    if (msg.type === "chat_ended") {
+      agentConnected = false;
+      mode = "bot";
+      setBadge();
+      addMsg("sys", "Atendimento encerrado pelo atendente.");
+      addMsg("bot", "Se precisar de novo, digite: atendente.");
+    }
   };
 
-  // --- mensagem inicial ---
-  addMsg("bot", "Olá! Eu sou um chatbot simples. Me diga o que você precisa. (Para falar com um humano, digite: atendente.)");
+  // ========= Boot =========
+  setNameUI();
+  setPrioUI();
   setBadge();
+  addMsg("bot", "Olá! Eu sou um chatbot simples. Se quiser falar com um humano, digite: atendente.");
 })();
 </script>
 </body>
