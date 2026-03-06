@@ -76,7 +76,7 @@
     <div class="top">
       <div>
         <h2 style="margin:0 0 6px">Chat (Usuário)</h2>
-        <div class="hint">Fluxo inteligente para Criação de OS.</div>
+        <div class="hint">Fluxos guiados para Criação de OS e Abertura de Chamados.</div>
       </div>
       <div class="row">
         <span class="badge" id="statusBadge">Status: Carregando…</span>
@@ -147,6 +147,7 @@
     topic: "",
     flow: "",
     createdAt: null,
+
     criacaoOS: {
       motivo: "",
       tipoOS: "",
@@ -171,6 +172,20 @@
       materiais: "",
       trafo: "",
       roteiro: "",
+      correcaoSolicitada: ""
+    },
+
+    aberturaChamado: {
+      matriculaSolicitante: "",
+      telefone: "",
+      tipoChamado: "",
+      tipoReembolso: "",
+      nomeDependente: "",
+      dependenteEspecial: "",
+      dataNascimentoDependente: "",
+      valorReembolso: "",
+      tipoCurso: "",
+      descricaoOutros: "",
       correcaoSolicitada: ""
     }
   };
@@ -349,11 +364,28 @@
     };
   }
 
+  function resetAberturaChamado() {
+    ticket.aberturaChamado = {
+      matriculaSolicitante: "",
+      telefone: "",
+      tipoChamado: "",
+      tipoReembolso: "",
+      nomeDependente: "",
+      dependenteEspecial: "",
+      dataNascimentoDependente: "",
+      valorReembolso: "",
+      tipoCurso: "",
+      descricaoOutros: "",
+      correcaoSolicitada: ""
+    };
+  }
+
   function showMainMenu() {
     flowState = null;
     ticket.topic = "";
     ticket.flow = "";
     resetCriacaoOS();
+    resetAberturaChamado();
 
     addMenu("Escolha uma opção:", [
       { value: "criacao_os", label: "1 - Criação de OS" },
@@ -369,6 +401,15 @@
     ticket.flow = "criacao_os";
     flowState = "criacao_os_motivo";
     addMsg("bot", "Qual o motivo da solicitação?");
+  }
+
+  function startAberturaChamadoFlow() {
+    mode = "flow";
+    setBadge();
+    ticket.topic = "Abertura de Chamados";
+    ticket.flow = "abertura_chamado";
+    flowState = "abertura_matricula";
+    addMsg("bot", "Informe a matrícula do solicitante.");
   }
 
   function handleTipoOS(os) {
@@ -420,7 +461,28 @@
       `Depósito da equipe: ${ticket.criacaoOS.depositoEquipe}`,
       `Materiais utilizados: ${ticket.criacaoOS.materiais}`,
       `Trafo: ${ticket.criacaoOS.trafo}`,
-      `Roteiro: ${ticket.criacaoOS.roteiro}`
+      `Roteiro: ${ticket.criacaoOS.roteiro}`,
+      ticket.criacaoOS.correcaoSolicitada ? `Correção solicitada: ${ticket.criacaoOS.correcaoSolicitada}` : null
+    ].filter(Boolean).join("\n");
+  }
+
+  function buildResumoAberturaChamado() {
+    const a = ticket.aberturaChamado;
+
+    return [
+      "Resumo da abertura de chamado:",
+      "",
+      `Matrícula: ${a.matriculaSolicitante}`,
+      `Telefone: ${a.telefone}`,
+      `Tipo de chamado: ${a.tipoChamado ? a.tipoChamado.replaceAll("_", " ") : ""}`,
+      a.tipoReembolso ? `Tipo de reembolso: ${a.tipoReembolso.replaceAll("_", " ")}` : null,
+      a.nomeDependente ? `Nome do dependente: ${a.nomeDependente}` : null,
+      a.dependenteEspecial ? `Dependente especial: ${a.dependenteEspecial}` : null,
+      a.dataNascimentoDependente ? `Data de nascimento do dependente: ${a.dataNascimentoDependente}` : null,
+      a.valorReembolso ? `Valor do reembolso: ${a.valorReembolso}` : null,
+      a.tipoCurso ? `Tipo do curso: ${a.tipoCurso}` : null,
+      a.descricaoOutros ? `Descrição / documentos informados: ${a.descricaoOutros}` : null,
+      a.correcaoSolicitada ? `Correção solicitada: ${a.correcaoSolicitada}` : null
     ].filter(Boolean).join("\n");
   }
 
@@ -450,12 +512,47 @@
     });
   }
 
-  function showConfirmacaoResumo() {
+  function sendToAgentAberturaChamado() {
+    ticket.createdAt = Date.now();
+    mode = "waiting";
+    setBadge();
+
+    const detalhes = buildResumoAberturaChamado();
+
+    addMsg("bot", "Perfeito! Vou encaminhar sua solicitação para um atendente agora.");
+
+    bc.postMessage({
+      type: "handoff_request",
+      sessionId,
+      ticket: {
+        name: ticket.name,
+        matricula: ticket.matricula,
+        email: ticket.email,
+        regional: ticket.regional,
+        topic: ticket.topic,
+        priority: "med",
+        description: detalhes,
+        createdAt: ticket.createdAt
+      },
+      ts: Date.now()
+    });
+  }
+
+  function showConfirmacaoResumoCriacaoOS() {
     addMsg("bot", buildResumoCriacaoOS());
     flowState = "criacao_os_confirmacao";
     addMenu("Está tudo certo ou teve algum erro?", [
       { value: "confirmacao:nao_erro", label: "Não teve erro" },
       { value: "confirmacao:teve_erro", label: "Teve erro" }
+    ]);
+  }
+
+  function showConfirmacaoResumoAbertura() {
+    addMsg("bot", buildResumoAberturaChamado());
+    flowState = "abertura_confirmacao";
+    addMenu("Está tudo certo ou teve algum erro?", [
+      { value: "abertura_confirmacao:ok", label: "Não teve erro" },
+      { value: "abertura_confirmacao:erro", label: "Teve erro" }
     ]);
   }
 
@@ -474,7 +571,7 @@
 
     if (value === "abertura_chamado") {
       addMsg("me", "3 - Abertura de Chamados");
-      addMsg("bot", "Fluxo de Abertura de Chamados ainda será montado.");
+      startAberturaChamadoFlow();
       return;
     }
 
@@ -538,198 +635,452 @@
       addMsg("bot", "Qual foi o erro? Escreva o que precisa corrigir.");
       return;
     }
+
+    if (value.startsWith("chamado_tipo:")) {
+      const tipo = value.split(":")[1];
+      addMsg("me", tipo.replaceAll("_", " "));
+      ticket.aberturaChamado.tipoChamado = tipo;
+
+      if (tipo === "Reembolso") {
+        flowState = "abertura_reembolso_tipo";
+        addMenu("Qual tipo de reembolso?", [
+          { value: "reembolso_tipo:Auxilio_Baba", label: "Auxílio Babá" },
+          { value: "reembolso_tipo:Auxilio_Creche_Educacional", label: "Auxílio Creche / Educacional" },
+          { value: "reembolso_tipo:Bolsa_de_Estudos", label: "Bolsa de Estudos" },
+          { value: "reembolso_tipo:Acidente_de_Trabalho", label: "Reembolso de acidente de trabalho" },
+          { value: "reembolso_tipo:Material_Escolar", label: "Material Escolar" },
+          { value: "reembolso_tipo:Renovacao_CNH", label: "Renovação CNH" }
+        ]);
+        return;
+      }
+
+      if (tipo === "Outros") {
+        flowState = "abertura_outros_descricao";
+        addMsg("bot", "Descreva qual chamado você deseja solicitar.");
+        return;
+      }
+
+      showConfirmacaoResumoAbertura();
+      return;
+    }
+
+    if (value.startsWith("reembolso_tipo:")) {
+      const tipo = value.split(":")[1];
+      addMsg("me", tipo.replaceAll("_", " "));
+      ticket.aberturaChamado.tipoReembolso = tipo;
+
+      if (tipo === "Auxilio_Baba" || tipo === "Auxilio_Creche_Educacional") {
+        flowState = "abertura_reembolso_nome_dependente";
+        addMsg("bot", "Qual o nome do dependente?");
+        return;
+      }
+
+      if (tipo === "Bolsa_de_Estudos") {
+        flowState = "abertura_bolsa_valor";
+        addMsg("bot", "Qual o valor do reembolso?");
+        return;
+      }
+
+      if (tipo === "Acidente_de_Trabalho") {
+        flowState = "abertura_acidente_valor";
+        addMsg("bot", "Qual o valor do reembolso?");
+        return;
+      }
+
+      if (tipo === "Material_Escolar") {
+        flowState = "abertura_material_escolar_docs";
+        addMsg("bot", "Envie ou descreva os documentos do Material Escolar.");
+        return;
+      }
+
+      if (tipo === "Renovacao_CNH") {
+        flowState = "abertura_cnh_docs";
+        addMsg("bot", "Envie ou descreva os documentos da Renovação de CNH.");
+        return;
+      }
+      return;
+    }
+
+    if (value === "dependente_especial:sim") {
+      addMsg("me", "SIM");
+      ticket.aberturaChamado.dependenteEspecial = "SIM";
+      flowState = "abertura_reembolso_data_nascimento";
+      addMsg("bot", "Qual a data de nascimento do dependente?");
+      return;
+    }
+
+    if (value === "dependente_especial:nao") {
+      addMsg("me", "NÃO");
+      ticket.aberturaChamado.dependenteEspecial = "NÃO";
+      flowState = "abertura_reembolso_data_nascimento";
+      addMsg("bot", "Qual a data de nascimento do dependente?");
+      return;
+    }
+
+    if (value === "tipo_curso:graduacao") {
+      addMsg("me", "Graduação");
+      ticket.aberturaChamado.tipoCurso = "Graduação";
+      flowState = "abertura_bolsa_docs";
+      addMsg("bot", "Agora envie ou descreva os documentos: Nota Fiscal Eletrônica, contrato ou comprovante de inscrição, comprovante de cobrança e comprovante bancário de pagamento.");
+      return;
+    }
+
+    if (value === "tipo_curso:pos") {
+      addMsg("me", "Pós-graduação");
+      ticket.aberturaChamado.tipoCurso = "Pós-graduação";
+      flowState = "abertura_bolsa_docs";
+      addMsg("bot", "Agora envie ou descreva os documentos: Nota Fiscal Eletrônica, contrato ou comprovante de inscrição, comprovante de cobrança e comprovante bancário de pagamento.");
+      return;
+    }
+
+    if (value === "tipo_curso:tecnico") {
+      addMsg("me", "Técnico");
+      ticket.aberturaChamado.tipoCurso = "Técnico";
+      flowState = "abertura_bolsa_docs";
+      addMsg("bot", "Agora envie ou descreva os documentos: Nota Fiscal Eletrônica, contrato ou comprovante de inscrição, comprovante de cobrança e comprovante bancário de pagamento.");
+      return;
+    }
+
+    if (value === "abertura_confirmacao:ok") {
+      addMsg("me", "Não teve erro");
+      sendToAgentAberturaChamado();
+      return;
+    }
+
+    if (value === "abertura_confirmacao:erro") {
+      addMsg("me", "Teve erro");
+      flowState = "abertura_correcao";
+      addMsg("bot", "Qual foi o erro? Escreva o que precisa corrigir.");
+      return;
+    }
   }
 
   function handleFlowInput(txt) {
-    if (ticket.flow !== "criacao_os") return;
+    if (ticket.flow === "criacao_os") {
+      if (flowState === "criacao_os_motivo") {
+        ticket.criacaoOS.motivo = txt;
+        flowState = "criacao_os_tipo";
+        addMenu("Qual o tipo da OS?", [
+          { value: "tipo_os:03", label: "03" },
+          { value: "tipo_os:12", label: "12" },
+          { value: "tipo_os:13", label: "13" },
+          { value: "tipo_os:79", label: "79" },
+          { value: "tipo_os:744", label: "744" },
+          { value: "tipo_os:Outras", label: "Outras" }
+        ]);
+        return;
+      }
 
-    if (flowState === "criacao_os_motivo") {
-      ticket.criacaoOS.motivo = txt;
-      flowState = "criacao_os_tipo";
-      addMenu("Qual o tipo da OS?", [
-        { value: "tipo_os:03", label: "03" },
-        { value: "tipo_os:12", label: "12" },
-        { value: "tipo_os:13", label: "13" },
-        { value: "tipo_os:79", label: "79" },
-        { value: "tipo_os:744", label: "744" },
-        { value: "tipo_os:Outras", label: "Outras" }
-      ]);
+      if (flowState === "criacao_os_cdc") {
+        ticket.criacaoOS.cdc = txt;
+        flowState = "criacao_os_endereco";
+        addMsg("bot", "Qual o endereço do cliente?");
+        return;
+      }
+
+      if (flowState === "criacao_os_endereco") {
+        ticket.criacaoOS.endereco = txt;
+        flowState = "criacao_os_medidor_antigo";
+        addMsg("bot", "Qual o Medidor antigo e a leitura dele?");
+        return;
+      }
+
+      if (flowState === "criacao_os_medidor_antigo") {
+        ticket.criacaoOS.medidorAntigoLeitura = txt;
+        flowState = "criacao_os_medidor_novo";
+        addMsg("bot", "Qual o medidor Novo e a leitura?");
+        return;
+      }
+
+      if (flowState === "criacao_os_medidor_novo") {
+        ticket.criacaoOS.medidorNovoLeitura = txt;
+        flowState = "criacao_os_gd";
+        addMenu("O cliente é GD?", [
+          { value: "gd:sim", label: "SIM" },
+          { value: "gd:nao", label: "NÃO" }
+        ]);
+        return;
+      }
+
+      if (flowState === "criacao_os_endereco_outras") {
+        ticket.criacaoOS.endereco = txt;
+        flowState = "criacao_os_medidor_novo_outras";
+        addMsg("bot", "Qual o medidor novo e a leitura?");
+        return;
+      }
+
+      if (flowState === "criacao_os_medidor_novo_outras") {
+        ticket.criacaoOS.medidorNovoLeitura = txt;
+        flowState = "criacao_os_gd";
+        addMenu("O cliente é GD?", [
+          { value: "gd:sim", label: "SIM" },
+          { value: "gd:nao", label: "NÃO" }
+        ]);
+        return;
+      }
+
+      if (flowState === "criacao_os_leitura_injetada") {
+        ticket.criacaoOS.leituraInjetada = txt;
+        flowState = "criacao_os_horario_alocacao";
+        addMsg("bot", "Qual o Horário de alocação?");
+        return;
+      }
+
+      if (flowState === "criacao_os_horario_alocacao") {
+        ticket.criacaoOS.horarioAlocacao = txt;
+        flowState = "criacao_os_horario_chegada";
+        addMsg("bot", "Qual o horário de chegada?");
+        return;
+      }
+
+      if (flowState === "criacao_os_horario_chegada") {
+        ticket.criacaoOS.horarioChegada = txt;
+        flowState = "criacao_os_horario_finalizacao";
+        addMsg("bot", "Qual o horário de finalização?");
+        return;
+      }
+
+      if (flowState === "criacao_os_horario_finalizacao") {
+        ticket.criacaoOS.horarioFinalizacao = txt;
+        flowState = "criacao_os_km_inicial";
+        addMsg("bot", "Qual o KM inicial?");
+        return;
+      }
+
+      if (flowState === "criacao_os_km_inicial") {
+        ticket.criacaoOS.kmInicial = txt;
+        flowState = "criacao_os_km_final";
+        addMsg("bot", "Qual o KM final?");
+        return;
+      }
+
+      if (flowState === "criacao_os_km_final") {
+        ticket.criacaoOS.kmFinal = txt;
+        flowState = "criacao_os_selos";
+        addMenu("Teve instalação de selos?", [
+          { value: "selos:sim", label: "SIM" },
+          { value: "selos:nao", label: "NÃO" }
+        ]);
+        return;
+      }
+
+      if (flowState === "criacao_os_selos_quais") {
+        ticket.criacaoOS.selos = txt;
+        flowState = "criacao_os_matricula1_com_selo";
+        addMsg("bot", "Informe a matrícula 1.");
+        return;
+      }
+
+      if (flowState === "criacao_os_matricula1_com_selo") {
+        ticket.criacaoOS.matricula1 = txt;
+        flowState = "criacao_os_matricula2_com_selo";
+        addMsg("bot", "Informe a matrícula 2.");
+        return;
+      }
+
+      if (flowState === "criacao_os_matricula2_com_selo") {
+        ticket.criacaoOS.matricula2 = txt;
+        flowState = "criacao_os_telefone";
+        addMsg("bot", "Qual o telefone para contato?");
+        return;
+      }
+
+      if (flowState === "criacao_os_matricula1_sem_selo") {
+        ticket.criacaoOS.matricula1 = txt;
+        flowState = "criacao_os_matricula2_sem_selo";
+        addMsg("bot", "Informe a matrícula do eletricista 2.");
+        return;
+      }
+
+      if (flowState === "criacao_os_matricula2_sem_selo") {
+        ticket.criacaoOS.matricula2 = txt;
+        flowState = "criacao_os_telefone";
+        addMsg("bot", "Qual o telefone para contato?");
+        return;
+      }
+
+      if (flowState === "criacao_os_telefone") {
+        ticket.criacaoOS.telefoneContato = txt;
+        flowState = "criacao_os_deposito";
+        addMsg("bot", "Qual o depósito da equipe?");
+        return;
+      }
+
+      if (flowState === "criacao_os_deposito") {
+        ticket.criacaoOS.depositoEquipe = txt;
+        flowState = "criacao_os_materiais";
+        addMsg("bot", "Se teve material, informe quais materiais utilizaram. Se não teve, escreva: não.");
+        return;
+      }
+
+      if (flowState === "criacao_os_materiais") {
+        ticket.criacaoOS.materiais = txt;
+        flowState = "criacao_os_trafo";
+        addMsg("bot", "Qual o trafo?");
+        return;
+      }
+
+      if (flowState === "criacao_os_trafo") {
+        ticket.criacaoOS.trafo = txt;
+        flowState = "criacao_os_roteiro";
+        addMsg("bot", "Qual o roteiro?");
+        return;
+      }
+
+      if (flowState === "criacao_os_roteiro") {
+        ticket.criacaoOS.roteiro = txt;
+        showConfirmacaoResumoCriacaoOS();
+        return;
+      }
+
+      if (flowState === "criacao_os_correcao") {
+        ticket.criacaoOS.correcaoSolicitada = txt;
+        addMsg("bot", "Entendi. Atualize agora as informações corretas nesta mesma mensagem, de forma completa.");
+        flowState = "criacao_os_correcao_texto_final";
+        return;
+      }
+
+      if (flowState === "criacao_os_correcao_texto_final") {
+        ticket.criacaoOS.correcaoSolicitada += `\nCorreção enviada pelo usuário: ${txt}`;
+        showConfirmacaoResumoCriacaoOS();
+        return;
+      }
+
       return;
     }
 
-    if (flowState === "criacao_os_cdc") {
-      ticket.criacaoOS.cdc = txt;
-      flowState = "criacao_os_endereco";
-      addMsg("bot", "Qual o endereço do cliente?");
-      return;
-    }
+    if (ticket.flow === "abertura_chamado") {
+      const a = ticket.aberturaChamado;
 
-    if (flowState === "criacao_os_endereco") {
-      ticket.criacaoOS.endereco = txt;
-      flowState = "criacao_os_medidor_antigo";
-      addMsg("bot", "Qual o Medidor antigo e a leitura dele?");
-      return;
-    }
+      if (flowState === "abertura_matricula") {
+        a.matriculaSolicitante = txt;
+        flowState = "abertura_telefone";
+        addMsg("bot", "Informe o número de telefone.");
+        return;
+      }
 
-    if (flowState === "criacao_os_medidor_antigo") {
-      ticket.criacaoOS.medidorAntigoLeitura = txt;
-      flowState = "criacao_os_medidor_novo";
-      addMsg("bot", "Qual o medidor Novo e a leitura?");
-      return;
-    }
+      if (flowState === "abertura_telefone") {
+        a.telefone = txt;
+        flowState = "abertura_tipo";
+        addMenu("Qual chamado você quer solicitar?", [
+          { value: "chamado_tipo:Reembolso", label: "Reembolso" },
+          { value: "chamado_tipo:Atualizacao_dos_Dados_Bancarios", label: "Atualização dos Dados Bancários" },
+          { value: "chamado_tipo:Reset_de_Senha", label: "Reset de Senha" },
+          { value: "chamado_tipo:Acesso_aos_Sistemas", label: "Acesso aos Sistemas" },
+          { value: "chamado_tipo:PDA_com_problema", label: "PDA com problema" },
+          { value: "chamado_tipo:Ponto", label: "Ponto" },
+          { value: "chamado_tipo:Outros", label: "Outros" }
+        ]);
+        return;
+      }
 
-    if (flowState === "criacao_os_medidor_novo") {
-      ticket.criacaoOS.medidorNovoLeitura = txt;
-      flowState = "criacao_os_gd";
-      addMenu("O cliente é GD?", [
-        { value: "gd:sim", label: "SIM" },
-        { value: "gd:nao", label: "NÃO" }
-      ]);
-      return;
-    }
+      if (flowState === "abertura_reembolso_nome_dependente") {
+        a.nomeDependente = txt;
+        flowState = "abertura_reembolso_dependente_especial";
+        addMenu("O dependente é especial?", [
+          { value: "dependente_especial:sim", label: "SIM" },
+          { value: "dependente_especial:nao", label: "NÃO" }
+        ]);
+        return;
+      }
 
-    if (flowState === "criacao_os_endereco_outras") {
-      ticket.criacaoOS.endereco = txt;
-      flowState = "criacao_os_medidor_novo_outras";
-      addMsg("bot", "Qual o medidor novo e a leitura?");
-      return;
-    }
+      if (flowState === "abertura_reembolso_data_nascimento") {
+        a.dataNascimentoDependente = txt;
+        flowState = "abertura_reembolso_valor";
+        addMsg("bot", "Qual o valor do reembolso?");
+        return;
+      }
 
-    if (flowState === "criacao_os_medidor_novo_outras") {
-      ticket.criacaoOS.medidorNovoLeitura = txt;
-      flowState = "criacao_os_gd";
-      addMenu("O cliente é GD?", [
-        { value: "gd:sim", label: "SIM" },
-        { value: "gd:nao", label: "NÃO" }
-      ]);
-      return;
-    }
+      if (flowState === "abertura_reembolso_valor") {
+        a.valorReembolso = txt;
 
-    if (flowState === "criacao_os_leitura_injetada") {
-      ticket.criacaoOS.leituraInjetada = txt;
-      flowState = "criacao_os_horario_alocacao";
-      addMsg("bot", "Qual o Horário de alocação?");
-      return;
-    }
+        if (a.tipoReembolso === "Auxilio_Baba") {
+          flowState = "abertura_baba_docs";
+          addMsg("bot", "Agora envie ou descreva os documentos: carteira de trabalho da babá, foto da carteira, foto do recibo de pagamento da babá, foto da arrecadação e-social e comprovante bancário do pagamento do e-social.");
+          return;
+        }
 
-    if (flowState === "criacao_os_horario_alocacao") {
-      ticket.criacaoOS.horarioAlocacao = txt;
-      flowState = "criacao_os_horario_chegada";
-      addMsg("bot", "Qual o horário de chegada?");
-      return;
-    }
+        if (a.tipoReembolso === "Auxilio_Creche_Educacional") {
+          flowState = "abertura_creche_docs";
+          addMsg("bot", "Agora envie ou descreva os documentos: contrato de prestação de serviços educacionais assinado, Nota Fiscal Eletrônica, comprovante de cobrança da mensalidade e comprovante bancário de pagamento.");
+          return;
+        }
 
-    if (flowState === "criacao_os_horario_chegada") {
-      ticket.criacaoOS.horarioChegada = txt;
-      flowState = "criacao_os_horario_finalizacao";
-      addMsg("bot", "Qual o horário de finalização?");
-      return;
-    }
+        return;
+      }
 
-    if (flowState === "criacao_os_horario_finalizacao") {
-      ticket.criacaoOS.horarioFinalizacao = txt;
-      flowState = "criacao_os_km_inicial";
-      addMsg("bot", "Qual o KM inicial?");
-      return;
-    }
+      if (flowState === "abertura_baba_docs") {
+        a.descricaoOutros = txt;
+        showConfirmacaoResumoAbertura();
+        return;
+      }
 
-    if (flowState === "criacao_os_km_inicial") {
-      ticket.criacaoOS.kmInicial = txt;
-      flowState = "criacao_os_km_final";
-      addMsg("bot", "Qual o KM final?");
-      return;
-    }
+      if (flowState === "abertura_creche_docs") {
+        a.descricaoOutros = txt;
+        showConfirmacaoResumoAbertura();
+        return;
+      }
 
-    if (flowState === "criacao_os_km_final") {
-      ticket.criacaoOS.kmFinal = txt;
-      flowState = "criacao_os_selos";
-      addMenu("Teve instalação de selos?", [
-        { value: "selos:sim", label: "SIM" },
-        { value: "selos:nao", label: "NÃO" }
-      ]);
-      return;
-    }
+      if (flowState === "abertura_bolsa_valor") {
+        a.valorReembolso = txt;
+        flowState = "abertura_bolsa_tipo_curso";
+        addMenu("Qual o tipo do curso?", [
+          { value: "tipo_curso:graduacao", label: "Graduação" },
+          { value: "tipo_curso:pos", label: "Pós-graduação" },
+          { value: "tipo_curso:tecnico", label: "Técnico" }
+        ]);
+        return;
+      }
 
-    if (flowState === "criacao_os_selos_quais") {
-      ticket.criacaoOS.selos = txt;
-      flowState = "criacao_os_matricula1_com_selo";
-      addMsg("bot", "Informe a matrícula 1.");
-      return;
-    }
+      if (flowState === "abertura_bolsa_docs") {
+        a.descricaoOutros = txt;
+        showConfirmacaoResumoAbertura();
+        return;
+      }
 
-    if (flowState === "criacao_os_matricula1_com_selo") {
-      ticket.criacaoOS.matricula1 = txt;
-      flowState = "criacao_os_matricula2_com_selo";
-      addMsg("bot", "Informe a matrícula 2.");
-      return;
-    }
+      if (flowState === "abertura_acidente_valor") {
+        a.valorReembolso = txt;
+        flowState = "abertura_acidente_docs";
+        addMsg("bot", "Agora envie ou descreva as fotos e documentos do reembolso por acidente de trabalho.");
+        return;
+      }
 
-    if (flowState === "criacao_os_matricula2_com_selo") {
-      ticket.criacaoOS.matricula2 = txt;
-      flowState = "criacao_os_telefone";
-      addMsg("bot", "Qual o telefone para contato?");
-      return;
-    }
+      if (flowState === "abertura_acidente_docs") {
+        a.descricaoOutros = txt;
+        showConfirmacaoResumoAbertura();
+        return;
+      }
 
-    if (flowState === "criacao_os_matricula1_sem_selo") {
-      ticket.criacaoOS.matricula1 = txt;
-      flowState = "criacao_os_matricula2_sem_selo";
-      addMsg("bot", "Informe a matrícula do eletricista 2.");
-      return;
-    }
+      if (flowState === "abertura_material_escolar_docs") {
+        a.descricaoOutros = txt;
+        showConfirmacaoResumoAbertura();
+        return;
+      }
 
-    if (flowState === "criacao_os_matricula2_sem_selo") {
-      ticket.criacaoOS.matricula2 = txt;
-      flowState = "criacao_os_telefone";
-      addMsg("bot", "Qual o telefone para contato?");
-      return;
-    }
+      if (flowState === "abertura_cnh_docs") {
+        a.descricaoOutros = txt;
+        showConfirmacaoResumoAbertura();
+        return;
+      }
 
-    if (flowState === "criacao_os_telefone") {
-      ticket.criacaoOS.telefoneContato = txt;
-      flowState = "criacao_os_deposito";
-      addMsg("bot", "Qual o depósito da equipe?");
-      return;
-    }
+      if (flowState === "abertura_outros_descricao") {
+        a.descricaoOutros = txt;
+        showConfirmacaoResumoAbertura();
+        return;
+      }
 
-    if (flowState === "criacao_os_deposito") {
-      ticket.criacaoOS.depositoEquipe = txt;
-      flowState = "criacao_os_materiais";
-      addMsg("bot", "Se teve material, informe quais materiais utilizaram. Se não teve, escreva: não.");
-      return;
-    }
+      if (flowState === "abertura_correcao") {
+        a.correcaoSolicitada = txt;
+        addMsg("bot", "Atualize agora as informações corretas nesta mesma mensagem.");
+        flowState = "abertura_correcao_texto_final";
+        return;
+      }
 
-    if (flowState === "criacao_os_materiais") {
-      ticket.criacaoOS.materiais = txt;
-      flowState = "criacao_os_trafo";
-      addMsg("bot", "Qual o trafo?");
-      return;
-    }
-
-    if (flowState === "criacao_os_trafo") {
-      ticket.criacaoOS.trafo = txt;
-      flowState = "criacao_os_roteiro";
-      addMsg("bot", "Qual o roteiro?");
-      return;
-    }
-
-    if (flowState === "criacao_os_roteiro") {
-      ticket.criacaoOS.roteiro = txt;
-      showConfirmacaoResumo();
-      return;
-    }
-
-    if (flowState === "criacao_os_correcao") {
-      ticket.criacaoOS.correcaoSolicitada = txt;
-      addMsg("bot", "Entendi. Atualize agora as informações corretas nesta mesma mensagem, de forma completa.");
-      flowState = "criacao_os_correcao_texto_final";
-      return;
-    }
-
-    if (flowState === "criacao_os_correcao_texto_final") {
-      ticket.criacaoOS.correcaoSolicitada += `\nCorreção enviada pelo usuário: ${txt}`;
-      showConfirmacaoResumo();
-      return;
+      if (flowState === "abertura_correcao_texto_final") {
+        a.correcaoSolicitada += `\nCorreção enviada pelo usuário: ${txt}`;
+        showConfirmacaoResumoAbertura();
+        return;
+      }
     }
   }
 
