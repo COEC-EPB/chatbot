@@ -11,25 +11,52 @@
       --warn:#ffb020; --danger:#ff4d4d; --ok:#19b37a;
     }
     *{box-sizing:border-box}
-    body{margin:0;font-family:system-ui,Segoe UI,Arial;background:linear-gradient(180deg,#070c16,#0b1220);color:var(--text)}
+    body{
+      margin:0;
+      font-family:system-ui,Segoe UI,Arial;
+      background:linear-gradient(180deg,#070c16,#0b1220);
+      color:var(--text)
+    }
     .wrap{max-width:980px;margin:0 auto;padding:18px}
     .top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
-    .badge{font-size:12px;padding:6px 10px;border:1px solid var(--border);border-radius:999px;color:var(--muted)}
+    .badge{
+      font-size:12px;padding:6px 10px;border:1px solid var(--border);
+      border-radius:999px;color:var(--muted)
+    }
     .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-    .card{margin-top:14px;background:rgba(15,27,51,.85);border:1px solid var(--border);border-radius:16px;overflow:hidden}
-    .chat{height:70vh;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
-    .msg{max-width:82%;padding:10px 12px;border-radius:14px;line-height:1.3;border:1px solid transparent;white-space:pre-wrap}
+    .card{
+      margin-top:14px;background:rgba(15,27,51,.85);
+      border:1px solid var(--border);border-radius:16px;overflow:hidden
+    }
+    .chat{
+      height:70vh;overflow:auto;padding:14px;
+      display:flex;flex-direction:column;gap:10px
+    }
+    .msg{
+      max-width:82%;padding:10px 12px;border-radius:14px;
+      line-height:1.3;border:1px solid transparent;white-space:pre-wrap
+    }
     .me{align-self:flex-end;background:rgba(43,108,255,.18);border-color:rgba(43,108,255,.35)}
     .bot{align-self:flex-start;background:rgba(29,42,72,.9);border-color:rgba(34,52,95,.9)}
     .agent{align-self:flex-start;background:rgba(25,179,122,.14);border-color:rgba(25,179,122,.35)}
     .sys{align-self:center;background:rgba(255,176,32,.12);border-color:rgba(255,176,32,.25);max-width:92%}
     .meta{font-size:11px;color:var(--muted);margin-top:4px}
-    .bar{display:flex;gap:10px;padding:12px;border-top:1px solid var(--border);background:rgba(10,16,30,.65)}
-    input{flex:1;padding:12px;border-radius:12px;border:1px solid var(--border);background:#0a142a;color:var(--text);outline:none}
-    button{padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:#0c1a35;color:var(--text);cursor:pointer}
+    .bar{
+      display:flex;gap:10px;padding:12px;border-top:1px solid var(--border);
+      background:rgba(10,16,30,.65)
+    }
+    input{
+      flex:1;padding:12px;border-radius:12px;border:1px solid var(--border);
+      background:#0a142a;color:var(--text);outline:none
+    }
+    button{
+      padding:12px 14px;border-radius:12px;border:1px solid var(--border);
+      background:#0c1a35;color:var(--text);cursor:pointer
+    }
     button:hover{filter:brightness(1.08)}
     button:disabled, input:disabled{opacity:.6;cursor:not-allowed}
     .hint{font-size:12px;color:var(--muted)}
+
     .menu-box{
       align-self:flex-start;
       max-width:90%;
@@ -104,6 +131,8 @@
       <div class="chat" id="chat"></div>
       <div class="bar">
         <input id="text" placeholder="Digite sua mensagem..." autocomplete="off" />
+        <input id="fileInput" type="file" multiple accept="image/*,.pdf" style="display:none" />
+        <button id="attachBtn" type="button">Anexar</button>
         <button id="send">Enviar</button>
       </div>
     </div>
@@ -129,6 +158,8 @@
   const $chat = document.getElementById("chat");
   const $text = document.getElementById("text");
   const $send = document.getElementById("send");
+  const $attachBtn = document.getElementById("attachBtn");
+  const $fileInput = document.getElementById("fileInput");
   const $badge = document.getElementById("statusBadge");
   const $uname = document.getElementById("uname");
   const $umat = document.getElementById("umat");
@@ -147,6 +178,7 @@
     topic: "",
     flow: "",
     createdAt: null,
+    attachments: [],
 
     criacaoOS: {
       motivo: "",
@@ -257,6 +289,7 @@
   function setInputEnabled(enabled) {
     $text.disabled = !enabled;
     $send.disabled = !enabled;
+    $attachBtn.disabled = !enabled;
   }
 
   function showLogin() {
@@ -271,6 +304,28 @@
     $loginCard.style.display = "none";
     $chatCard.style.display = "block";
     setInputEnabled(true);
+  }
+
+  function addAttachmentMsg(file) {
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    const label = isPdf ? "PDF anexado" : "Imagem anexada";
+    addMsg("me", `${label}: ${file.name}`);
+  }
+
+  function handleSelectedFiles(files) {
+    const selected = Array.from(files || []);
+    if (!selected.length) return;
+
+    selected.forEach(file => {
+      ticket.attachments.push({
+        name: file.name,
+        type: file.type || "",
+        size: file.size || 0
+      });
+      addAttachmentMsg(file);
+    });
+
+    $fileInput.value = "";
   }
 
   async function loadMe() {
@@ -380,12 +435,17 @@
     };
   }
 
+  function resetAttachments() {
+    ticket.attachments = [];
+  }
+
   function showMainMenu() {
     flowState = null;
     ticket.topic = "";
     ticket.flow = "";
     resetCriacaoOS();
     resetAberturaChamado();
+    resetAttachments();
 
     addMenu("Escolha uma opção:", [
       { value: "criacao_os", label: "1 - Criação de OS" },
@@ -462,6 +522,7 @@
       `Materiais utilizados: ${ticket.criacaoOS.materiais}`,
       `Trafo: ${ticket.criacaoOS.trafo}`,
       `Roteiro: ${ticket.criacaoOS.roteiro}`,
+      ticket.attachments.length ? `Anexos: ${ticket.attachments.map(a => a.name).join(", ")}` : null,
       ticket.criacaoOS.correcaoSolicitada ? `Correção solicitada: ${ticket.criacaoOS.correcaoSolicitada}` : null
     ].filter(Boolean).join("\n");
   }
@@ -482,6 +543,7 @@
       a.valorReembolso ? `Valor do reembolso: ${a.valorReembolso}` : null,
       a.tipoCurso ? `Tipo do curso: ${a.tipoCurso}` : null,
       a.descricaoOutros ? `Descrição / documentos informados: ${a.descricaoOutros}` : null,
+      ticket.attachments.length ? `Anexos: ${ticket.attachments.map(a => a.name).join(", ")}` : null,
       a.correcaoSolicitada ? `Correção solicitada: ${a.correcaoSolicitada}` : null
     ].filter(Boolean).join("\n");
   }
@@ -689,13 +751,13 @@
 
       if (tipo === "Material_Escolar") {
         flowState = "abertura_material_escolar_docs";
-        addMsg("bot", "Envie ou descreva os documentos do Material Escolar.");
+        addMsg("bot", "Agora anexe ou descreva os documentos do Material Escolar.");
         return;
       }
 
       if (tipo === "Renovacao_CNH") {
         flowState = "abertura_cnh_docs";
-        addMsg("bot", "Envie ou descreva os documentos da Renovação de CNH.");
+        addMsg("bot", "Agora anexe ou descreva os documentos da Renovação de CNH.");
         return;
       }
       return;
@@ -721,7 +783,7 @@
       addMsg("me", "Graduação");
       ticket.aberturaChamado.tipoCurso = "Graduação";
       flowState = "abertura_bolsa_docs";
-      addMsg("bot", "Agora envie ou descreva os documentos: Nota Fiscal Eletrônica, contrato ou comprovante de inscrição, comprovante de cobrança e comprovante bancário de pagamento.");
+      addMsg("bot", "Agora anexe ou descreva os documentos: Nota Fiscal Eletrônica, contrato ou comprovante de inscrição, comprovante de cobrança e comprovante bancário de pagamento.");
       return;
     }
 
@@ -729,7 +791,7 @@
       addMsg("me", "Pós-graduação");
       ticket.aberturaChamado.tipoCurso = "Pós-graduação";
       flowState = "abertura_bolsa_docs";
-      addMsg("bot", "Agora envie ou descreva os documentos: Nota Fiscal Eletrônica, contrato ou comprovante de inscrição, comprovante de cobrança e comprovante bancário de pagamento.");
+      addMsg("bot", "Agora anexe ou descreva os documentos: Nota Fiscal Eletrônica, contrato ou comprovante de inscrição, comprovante de cobrança e comprovante bancário de pagamento.");
       return;
     }
 
@@ -737,7 +799,7 @@
       addMsg("me", "Técnico");
       ticket.aberturaChamado.tipoCurso = "Técnico";
       flowState = "abertura_bolsa_docs";
-      addMsg("bot", "Agora envie ou descreva os documentos: Nota Fiscal Eletrônica, contrato ou comprovante de inscrição, comprovante de cobrança e comprovante bancário de pagamento.");
+      addMsg("bot", "Agora anexe ou descreva os documentos: Nota Fiscal Eletrônica, contrato ou comprovante de inscrição, comprovante de cobrança e comprovante bancário de pagamento.");
       return;
     }
 
@@ -996,13 +1058,13 @@
 
         if (a.tipoReembolso === "Auxilio_Baba") {
           flowState = "abertura_baba_docs";
-          addMsg("bot", "Agora envie ou descreva os documentos: carteira de trabalho da babá, foto da carteira, foto do recibo de pagamento da babá, foto da arrecadação e-social e comprovante bancário do pagamento do e-social.");
+          addMsg("bot", "Agora anexe ou descreva os documentos: carteira de trabalho da babá, foto da carteira, foto do recibo de pagamento da babá, foto da arrecadação e-social e comprovante bancário do pagamento do e-social.");
           return;
         }
 
         if (a.tipoReembolso === "Auxilio_Creche_Educacional") {
           flowState = "abertura_creche_docs";
-          addMsg("bot", "Agora envie ou descreva os documentos: contrato de prestação de serviços educacionais assinado, Nota Fiscal Eletrônica, comprovante de cobrança da mensalidade e comprovante bancário de pagamento.");
+          addMsg("bot", "Agora anexe ou descreva os documentos: contrato de prestação de serviços educacionais assinado, Nota Fiscal Eletrônica, comprovante de cobrança da mensalidade e comprovante bancário de pagamento.");
           return;
         }
 
@@ -1041,7 +1103,7 @@
       if (flowState === "abertura_acidente_valor") {
         a.valorReembolso = txt;
         flowState = "abertura_acidente_docs";
-        addMsg("bot", "Agora envie ou descreva as fotos e documentos do reembolso por acidente de trabalho.");
+        addMsg("bot", "Agora anexe ou descreva as fotos e documentos do reembolso por acidente de trabalho.");
         return;
       }
 
@@ -1129,6 +1191,14 @@
       bc.postMessage({ type:"user_message", sessionId, text: txt, ts: Date.now() });
     }
   }
+
+  $attachBtn.addEventListener("click", () => {
+    $fileInput.click();
+  });
+
+  $fileInput.addEventListener("change", (e) => {
+    handleSelectedFiles(e.target.files);
+  });
 
   $send.addEventListener("click", send);
   $text.addEventListener("keydown", (e) => {
