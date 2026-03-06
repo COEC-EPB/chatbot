@@ -34,6 +34,46 @@
     .prio.low{border-color:rgba(25,179,122,.35);color:#a8f0d7;background:rgba(25,179,122,.10)}
     .prio.med{border-color:rgba(255,176,32,.35);color:#ffe2a6;background:rgba(255,176,32,.10)}
     .prio.high{border-color:rgba(255,77,77,.35);color:#ffb3b3;background:rgba(255,77,77,.10)}
+
+    .menu-box{
+      align-self:flex-start;
+      max-width:90%;
+      background:rgba(29,42,72,.9);
+      border:1px solid rgba(34,52,95,.9);
+      border-radius:14px;
+      padding:12px;
+    }
+    .menu-title{
+      font-size:14px;
+      margin-bottom:10px;
+      color:var(--text);
+      font-weight:600;
+    }
+    .menu-buttons{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+    }
+    .menu-btn{
+      width:100%;
+      text-align:left;
+      background:#13213f;
+      border:1px solid #29406d;
+      border-radius:12px;
+      padding:10px 12px;
+      color:var(--text);
+      cursor:pointer;
+      transition:.2s;
+    }
+    .menu-btn:hover{
+      filter:brightness(1.08);
+      transform:translateY(-1px);
+    }
+    .menu-btn:disabled{
+      opacity:.6;
+      cursor:not-allowed;
+      transform:none;
+    }
   </style>
 </head>
 <body>
@@ -75,6 +115,7 @@
       </div>
     </div>
   </div>
+
 <script>
 (() => {
   const API_BASE = "https://long-hall-0aaa.pedro-fillype.workers.dev";
@@ -106,6 +147,7 @@
   let agentConnected = false;
   let wizardStep = 0;
   let me = null;
+  let activeMenuId = null;
 
   const ticket = {
     name: "",
@@ -130,6 +172,43 @@
     el.innerHTML = `<div>${escapeHtml(text)}</div><div class="meta">${labelOf(kind)}</div>`;
     $chat.appendChild(el);
     $chat.scrollTop = $chat.scrollHeight;
+  }
+
+  function addMenu(options) {
+    const box = document.createElement("div");
+    box.className = "menu-box";
+    box.id = "menu-" + Date.now();
+
+    const buttons = options.map(opt => `
+      <button class="menu-btn" data-value="${escapeHtml(opt.value)}">
+        ${escapeHtml(opt.label)}
+      </button>
+    `).join("");
+
+    box.innerHTML = `
+      <div class="menu-title">Escolha uma opção:</div>
+      <div class="menu-buttons">${buttons}</div>
+      <div class="meta">Chatbot</div>
+    `;
+
+    $chat.appendChild(box);
+    $chat.scrollTop = $chat.scrollHeight;
+
+    box.querySelectorAll(".menu-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const value = btn.getAttribute("data-value");
+        disableMenu(box);
+        handleMenuSelection(value);
+      });
+    });
+
+    activeMenuId = box.id;
+  }
+
+  function disableMenu(menuEl) {
+    menuEl.querySelectorAll(".menu-btn").forEach(btn => {
+      btn.disabled = true;
+    });
   }
 
   function labelOf(kind){
@@ -247,7 +326,8 @@
       mode = "bot";
       setBadge();
       addMsg("bot", `Olá, ${ticket.name || "usuário"}! Eu sou o chatbot de atendimento.`);
-      addMsg("bot", "Se quiser falar com um atendente, digite: atendente.");
+      addMsg("bot", "Escolha abaixo o tipo de solicitação:");
+      showMainMenu();
       $loginMsg.textContent = "";
     } catch (err) {
       $loginMsg.textContent = err.message || "Não foi possível entrar.";
@@ -257,23 +337,47 @@
     }
   }
 
-  function startWizard() {
+  function showMainMenu() {
+    addMenu([
+      { value: "criacao_os", label: "1 - Criação de OS" },
+      { value: "alteracao_os", label: "2 - Alteração de OS" },
+      { value: "abertura_chamado", label: "3 - Abertura de Chamados" }
+    ]);
+  }
+
+  function handleMenuSelection(value) {
+    if (value === "criacao_os") {
+      ticket.topic = "Criação de OS";
+      addMsg("me", "1 - Criação de OS");
+      startWizardAfterTopic();
+      return;
+    }
+
+    if (value === "alteracao_os") {
+      ticket.topic = "Alteração de OS";
+      addMsg("me", "2 - Alteração de OS");
+      startWizardAfterTopic();
+      return;
+    }
+
+    if (value === "abertura_chamado") {
+      ticket.topic = "Abertura de Chamados";
+      addMsg("me", "3 - Abertura de Chamados");
+      startWizardAfterTopic();
+      return;
+    }
+  }
+
+  function startWizardAfterTopic() {
     mode = "wizard";
-    wizardStep = 0;
+    wizardStep = 1;
     setBadge();
-    addMsg("bot", `Perfeito, ${ticket.name || "usuário"} — vou coletar rapidinho algumas informações antes de te encaminhar.`);
-    addMsg("bot", "1/3 — Sobre o que é o atendimento? (ex: acesso, erro, cobrança, dúvida)");
+    addMsg("bot", `Perfeito. Você escolheu: ${ticket.topic}.`);
+    addMsg("bot", "Agora informe a prioridade: baixa, média ou alta.");
   }
 
   function handleWizardInput(userText) {
     const txt = userText.trim();
-
-    if (wizardStep === 0) {
-      ticket.topic = txt.slice(0, 80);
-      wizardStep = 1;
-      addMsg("bot", "2/3 — Qual a prioridade? Responda: baixa, média ou alta.");
-      return;
-    }
 
     if (wizardStep === 1) {
       const p = normalizePriority(txt);
@@ -284,7 +388,7 @@
       ticket.priority = p;
       setPrioUI();
       wizardStep = 2;
-      addMsg("bot", "3/3 — Descreva o problema.");
+      addMsg("bot", "Descreva o que você precisa com mais detalhes.");
       return;
     }
 
@@ -317,18 +421,26 @@
   function botReply(userText) {
     const t = userText.toLowerCase();
 
+    if (["menu", "inicio", "início", "voltar"].includes(t)) {
+      addMsg("bot", "Tudo bem. Escolha novamente uma opção:");
+      showMainMenu();
+      return;
+    }
+
     const wantsHuman = ["atendente", "humano", "pessoa", "suporte", "ajuda", "urgente"].some(k => t.includes(k));
     if (wantsHuman) {
-      startWizard();
+      addMsg("bot", "Antes de te encaminhar, escolha o tipo de solicitação:");
+      showMainMenu();
       return;
     }
 
     if (t.includes("oi") || t.includes("olá") || t.includes("bom dia") || t.includes("boa tarde") || t.includes("boa noite")) {
-      addMsg("bot", `Oi, ${ticket.name || "usuário"}! Quer falar com um atendente? Digite: atendente.`);
+      addMsg("bot", `Oi, ${ticket.name || "usuário"}! Escolha uma opção abaixo para começarmos.`);
+      showMainMenu();
       return;
     }
 
-    addMsg("bot", "Entendi. Se você quiser atendimento humano, digite: atendente.");
+    addMsg("bot", "Para continuar, escolha uma opção do menu. Se quiser ver de novo, digite: menu.");
   }
 
   function send() {
@@ -391,8 +503,14 @@
       agentConnected = false;
       mode = "bot";
       setBadge();
+      ticket.topic = "";
+      ticket.priority = "";
+      ticket.description = "";
+      ticket.createdAt = null;
+      setPrioUI();
       addMsg("sys", "Atendimento encerrado pelo atendente.");
-      addMsg("bot", "Se precisar de novo, digite: atendente.");
+      addMsg("bot", "Se precisar de novo, escolha uma opção abaixo:");
+      showMainMenu();
     }
   };
 
@@ -408,7 +526,8 @@
       mode = "bot";
       setBadge();
       addMsg("bot", `Olá, ${ticket.name || "usuário"}! Eu sou o chatbot de atendimento.`);
-      addMsg("bot", "Se quiser falar com um atendente, digite: atendente.");
+      addMsg("bot", "Escolha abaixo o tipo de solicitação:");
+      showMainMenu();
     } catch {
       showLogin();
     }
