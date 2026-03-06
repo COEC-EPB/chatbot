@@ -96,6 +96,24 @@
       cursor:not-allowed;
       transform:none;
     }
+    .upload-box{
+  align-self:flex-start;
+  max-width:90%;
+  background:rgba(255,176,32,.12);
+  border:1px solid rgba(255,176,32,.35);
+  border-radius:14px;
+  padding:12px;
+}
+.upload-title{
+  font-size:14px;
+  font-weight:700;
+  color:#ffe2a6;
+  margin-bottom:6px;
+}
+.upload-sub{
+  font-size:12px;
+  color:var(--muted);
+}
   </style>
 </head>
 <body>
@@ -221,6 +239,18 @@
       correcaoSolicitada: ""
     }
   };
+
+  function addUploadPrompt(text = "ANEXE AS IMAGENS") {
+  const box = document.createElement("div");
+  box.className = "upload-box";
+  box.innerHTML = `
+    <div class="upload-title">${escapeHtml(text)}</div>
+    <div class="upload-sub">Clique no botão "Anexar" abaixo para selecionar imagens ou PDF.</div>
+    <div class="meta">Chatbot</div>
+  `;
+  $chat.appendChild(box);
+  $chat.scrollTop = $chat.scrollHeight;
+}
 
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, (m) => ({
@@ -752,12 +782,14 @@
       if (tipo === "Material_Escolar") {
         flowState = "abertura_material_escolar_docs";
         addMsg("bot", "Agora anexe ou descreva os documentos do Material Escolar.");
+        addUploadPrompt("ANEXE AS IMAGENS");
         return;
       }
 
       if (tipo === "Renovacao_CNH") {
         flowState = "abertura_cnh_docs";
         addMsg("bot", "Agora anexe ou descreva os documentos da Renovação de CNH.");
+        addUploadPrompt("ANEXE AS IMAGENS");
         return;
       }
       return;
@@ -783,7 +815,7 @@
       addMsg("me", "Graduação");
       ticket.aberturaChamado.tipoCurso = "Graduação";
       flowState = "abertura_bolsa_docs";
-      addMsg("bot", "Agora anexe ou descreva os documentos: Nota Fiscal Eletrônica, contrato ou comprovante de inscrição, comprovante de cobrança e comprovante bancário de pagamento.");
+      : Nota Fiscal Eletrônica, contrato ou comprovante de inscrição, comprovante de cobrança e comprovante bancário de pagamento.");
       return;
     }
 
@@ -792,6 +824,7 @@
       ticket.aberturaChamado.tipoCurso = "Pós-graduação";
       flowState = "abertura_bolsa_docs";
       addMsg("bot", "Agora anexe ou descreva os documentos: Nota Fiscal Eletrônica, contrato ou comprovante de inscrição, comprovante de cobrança e comprovante bancário de pagamento.");
+      addUploadPrompt("ANEXE AS IMAGENS");
       return;
     }
 
@@ -800,6 +833,7 @@
       ticket.aberturaChamado.tipoCurso = "Técnico";
       flowState = "abertura_bolsa_docs";
       addMsg("bot", "Agora anexe ou descreva os documentos: Nota Fiscal Eletrônica, contrato ou comprovante de inscrição, comprovante de cobrança e comprovante bancário de pagamento.");
+      addUploadPrompt("ANEXE AS IMAGENS");
       return;
     }
 
@@ -1059,12 +1093,14 @@
         if (a.tipoReembolso === "Auxilio_Baba") {
           flowState = "abertura_baba_docs";
           addMsg("bot", "Agora anexe ou descreva os documentos: carteira de trabalho da babá, foto da carteira, foto do recibo de pagamento da babá, foto da arrecadação e-social e comprovante bancário do pagamento do e-social.");
+          addUploadPrompt("ANEXE AS IMAGENS");
           return;
         }
 
         if (a.tipoReembolso === "Auxilio_Creche_Educacional") {
           flowState = "abertura_creche_docs";
           addMsg("bot", "Agora anexe ou descreva os documentos: contrato de prestação de serviços educacionais assinado, Nota Fiscal Eletrônica, comprovante de cobrança da mensalidade e comprovante bancário de pagamento.");
+          addUploadPrompt("ANEXE AS IMAGENS");
           return;
         }
 
@@ -1104,6 +1140,7 @@
         a.valorReembolso = txt;
         flowState = "abertura_acidente_docs";
         addMsg("bot", "Agora anexe ou descreva as fotos e documentos do reembolso por acidente de trabalho.");
+        addUploadPrompt("ANEXE AS IMAGENS");
         return;
       }
 
