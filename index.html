@@ -18,23 +18,18 @@
     .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
     .card{margin-top:14px;background:rgba(15,27,51,.85);border:1px solid var(--border);border-radius:16px;overflow:hidden}
     .chat{height:70vh;overflow:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
-    .msg{max-width:78%;padding:10px 12px;border-radius:14px;line-height:1.25;border:1px solid transparent}
+    .msg{max-width:82%;padding:10px 12px;border-radius:14px;line-height:1.3;border:1px solid transparent;white-space:pre-wrap}
     .me{align-self:flex-end;background:rgba(43,108,255,.18);border-color:rgba(43,108,255,.35)}
     .bot{align-self:flex-start;background:rgba(29,42,72,.9);border-color:rgba(34,52,95,.9)}
     .agent{align-self:flex-start;background:rgba(25,179,122,.14);border-color:rgba(25,179,122,.35)}
     .sys{align-self:center;background:rgba(255,176,32,.12);border-color:rgba(255,176,32,.25);max-width:92%}
     .meta{font-size:11px;color:var(--muted);margin-top:4px}
     .bar{display:flex;gap:10px;padding:12px;border-top:1px solid var(--border);background:rgba(10,16,30,.65)}
-    input{flex:1;padding:12px 12px;border-radius:12px;border:1px solid var(--border);background:#0a142a;color:var(--text);outline:none}
+    input{flex:1;padding:12px;border-radius:12px;border:1px solid var(--border);background:#0a142a;color:var(--text);outline:none}
     button{padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:#0c1a35;color:var(--text);cursor:pointer}
     button:hover{filter:brightness(1.08)}
     button:disabled, input:disabled{opacity:.6;cursor:not-allowed}
     .hint{font-size:12px;color:var(--muted)}
-    .prio{font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);color:var(--muted)}
-    .prio.low{border-color:rgba(25,179,122,.35);color:#a8f0d7;background:rgba(25,179,122,.10)}
-    .prio.med{border-color:rgba(255,176,32,.35);color:#ffe2a6;background:rgba(255,176,32,.10)}
-    .prio.high{border-color:rgba(255,77,77,.35);color:#ffb3b3;background:rgba(255,77,77,.10)}
-
     .menu-box{
       align-self:flex-start;
       max-width:90%;
@@ -96,7 +91,6 @@
       <div style="padding:18px;">
         <h3 style="margin-top:0;">Entrar</h3>
         <div class="hint" style="margin-bottom:12px;">Faça login para usar o chat.</div>
-
         <div style="display:flex; flex-direction:column; gap:10px;">
           <input id="loginMatricula" placeholder="Matrícula" />
           <input id="loginSenha" type="password" placeholder="Senha" />
@@ -143,17 +137,16 @@
   let mode = "loading";
   let me = null;
   let agentConnected = false;
+  let flowState = null;
 
   const ticket = {
     name: "",
     matricula: "",
     email: "",
     regional: "",
-
     topic: "",
     flow: "",
     createdAt: null,
-
     criacaoOS: {
       motivo: "",
       tipoOS: "",
@@ -164,11 +157,23 @@
       medidorNovoLeitura: "",
       gd: "",
       leituraInjetada: "",
-      horarioAlocacao: ""
+      horarioAlocacao: "",
+      horarioChegada: "",
+      horarioFinalizacao: "",
+      kmInicial: "",
+      kmFinal: "",
+      teveSelos: "",
+      selos: "",
+      matricula1: "",
+      matricula2: "",
+      telefoneContato: "",
+      depositoEquipe: "",
+      materiais: "",
+      trafo: "",
+      roteiro: "",
+      correcaoSolicitada: ""
     }
   };
-
-  let flowState = null;
 
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, (m) => ({
@@ -270,7 +275,6 @@
     ticket.matricula = me.matricula || "";
     ticket.email = me.email || "";
     ticket.regional = me.regional || "";
-
     setUserUI();
   }
 
@@ -316,10 +320,7 @@
     }
   }
 
-  function showMainMenu() {
-    flowState = null;
-    ticket.topic = "";
-    ticket.flow = "";
+  function resetCriacaoOS() {
     ticket.criacaoOS = {
       motivo: "",
       tipoOS: "",
@@ -330,13 +331,131 @@
       medidorNovoLeitura: "",
       gd: "",
       leituraInjetada: "",
-      horarioAlocacao: ""
+      horarioAlocacao: "",
+      horarioChegada: "",
+      horarioFinalizacao: "",
+      kmInicial: "",
+      kmFinal: "",
+      teveSelos: "",
+      selos: "",
+      matricula1: "",
+      matricula2: "",
+      telefoneContato: "",
+      depositoEquipe: "",
+      materiais: "",
+      trafo: "",
+      roteiro: "",
+      correcaoSolicitada: ""
     };
+  }
+
+  function showMainMenu() {
+    flowState = null;
+    ticket.topic = "";
+    ticket.flow = "";
+    resetCriacaoOS();
 
     addMenu("Escolha uma opção:", [
       { value: "criacao_os", label: "1 - Criação de OS" },
       { value: "alteracao_os", label: "2 - Alteração de OS" },
       { value: "abertura_chamado", label: "3 - Abertura de Chamados" }
+    ]);
+  }
+
+  function startCriacaoOSFlow() {
+    mode = "flow";
+    setBadge();
+    ticket.topic = "Criação de OS";
+    ticket.flow = "criacao_os";
+    flowState = "criacao_os_motivo";
+    addMsg("bot", "Qual o motivo da solicitação?");
+  }
+
+  function handleTipoOS(os) {
+    ticket.criacaoOS.tipoOS = os;
+
+    if (os === "79") {
+      addMsg("sys", "OS DE VISTORIA:\n\nO.S. DEVE ESTAR EXECUTADA.");
+    }
+
+    if (os === "Outras") {
+      flowState = "criacao_os_tipo_outras";
+      addMenu("Selecione o tipo da OS (Outras):", [
+        { value: "tipo_os_outras:28", label: "28" },
+        { value: "tipo_os_outras:709", label: "709" },
+        { value: "tipo_os_outras:710", label: "710" },
+        { value: "tipo_os_outras:798", label: "798" },
+        { value: "tipo_os_outras:739", label: "739" },
+        { value: "tipo_os_outras:79", label: "79" }
+      ]);
+      return;
+    }
+
+    flowState = "criacao_os_cdc";
+    addMsg("bot", "Qual a CDC do cliente?");
+  }
+
+  function buildResumoCriacaoOS() {
+    return [
+      "Resumo da solicitação:",
+      "",
+      `Motivo da solicitação: ${ticket.criacaoOS.motivo}`,
+      `Tipo da OS: ${ticket.criacaoOS.tipoOS === "Outras" ? `Outras - ${ticket.criacaoOS.tipoOSOutras}` : ticket.criacaoOS.tipoOS}`,
+      ticket.criacaoOS.cdc ? `CDC do cliente: ${ticket.criacaoOS.cdc}` : null,
+      `Endereço do cliente: ${ticket.criacaoOS.endereco}`,
+      ticket.criacaoOS.medidorAntigoLeitura ? `Medidor antigo e leitura: ${ticket.criacaoOS.medidorAntigoLeitura}` : null,
+      `Medidor novo e leitura: ${ticket.criacaoOS.medidorNovoLeitura}`,
+      `Cliente é GD: ${ticket.criacaoOS.gd}`,
+      ticket.criacaoOS.leituraInjetada ? `Leitura Injetada: ${ticket.criacaoOS.leituraInjetada}` : null,
+      `Horário de alocação: ${ticket.criacaoOS.horarioAlocacao}`,
+      `Horário de chegada: ${ticket.criacaoOS.horarioChegada}`,
+      `Horário de finalização: ${ticket.criacaoOS.horarioFinalizacao}`,
+      `KM inicial: ${ticket.criacaoOS.kmInicial}`,
+      `KM final: ${ticket.criacaoOS.kmFinal}`,
+      `Teve instalação de selos: ${ticket.criacaoOS.teveSelos}`,
+      ticket.criacaoOS.selos ? `Selos: ${ticket.criacaoOS.selos}` : null,
+      `Matrícula 1: ${ticket.criacaoOS.matricula1}`,
+      `Matrícula 2: ${ticket.criacaoOS.matricula2}`,
+      `Telefone para contato: ${ticket.criacaoOS.telefoneContato}`,
+      `Depósito da equipe: ${ticket.criacaoOS.depositoEquipe}`,
+      `Materiais utilizados: ${ticket.criacaoOS.materiais}`,
+      `Trafo: ${ticket.criacaoOS.trafo}`,
+      `Roteiro: ${ticket.criacaoOS.roteiro}`
+    ].filter(Boolean).join("\n");
+  }
+
+  function sendToAgentCriacaoOS() {
+    ticket.createdAt = Date.now();
+    mode = "waiting";
+    setBadge();
+
+    const detalhes = buildResumoCriacaoOS();
+
+    addMsg("bot", "Perfeito! Vou encaminhar sua solicitação para um atendente agora.");
+
+    bc.postMessage({
+      type: "handoff_request",
+      sessionId,
+      ticket: {
+        name: ticket.name,
+        matricula: ticket.matricula,
+        email: ticket.email,
+        regional: ticket.regional,
+        topic: ticket.topic,
+        priority: "med",
+        description: detalhes,
+        createdAt: ticket.createdAt
+      },
+      ts: Date.now()
+    });
+  }
+
+  function showConfirmacaoResumo() {
+    addMsg("bot", buildResumoCriacaoOS());
+    flowState = "criacao_os_confirmacao";
+    addMenu("Está tudo certo ou teve algum erro?", [
+      { value: "confirmacao:nao_erro", label: "Não teve erro" },
+      { value: "confirmacao:teve_erro", label: "Teve erro" }
     ]);
   }
 
@@ -390,75 +509,35 @@
       addMsg("bot", "Qual o Horário de alocação?");
       return;
     }
-  }
 
-  function startCriacaoOSFlow() {
-    mode = "flow";
-    setBadge();
-    ticket.topic = "Criação de OS";
-    ticket.flow = "criacao_os";
-    flowState = "criacao_os_motivo";
-    addMsg("bot", "Qual o motivo da solicitação?");
-  }
-
-  function handleTipoOS(os) {
-    ticket.criacaoOS.tipoOS = os;
-
-    if (os === "79") {
-      addMsg("sys", "OS DE VISTORIA:\n\nO.S. DEVE ESTAR EXECUTADA.");
-    }
-
-    if (os === "Outras") {
-      flowState = "criacao_os_tipo_outras";
-      addMenu("Selecione o tipo da OS (Outras):", [
-        { value: "tipo_os_outras:28", label: "28" },
-        { value: "tipo_os_outras:709", label: "709" },
-        { value: "tipo_os_outras:710", label: "710" },
-        { value: "tipo_os_outras:798", label: "798" },
-        { value: "tipo_os_outras:739", label: "739" },
-        { value: "tipo_os_outras:79", label: "79" }
-      ]);
+    if (value === "selos:sim") {
+      addMsg("me", "SIM");
+      ticket.criacaoOS.teveSelos = "SIM";
+      flowState = "criacao_os_selos_quais";
+      addMsg("bot", "Quais são os selos?");
       return;
     }
 
-    flowState = "criacao_os_cdc";
-    addMsg("bot", "Qual a CDC do cliente?");
-  }
+    if (value === "selos:nao") {
+      addMsg("me", "NÃO");
+      ticket.criacaoOS.teveSelos = "NÃO";
+      flowState = "criacao_os_matricula1_sem_selo";
+      addMsg("bot", "Informe a matrícula do eletricista 1.");
+      return;
+    }
 
-  function maybeFinishCriacaoOS() {
-    ticket.createdAt = Date.now();
-    mode = "waiting";
-    setBadge();
+    if (value === "confirmacao:nao_erro") {
+      addMsg("me", "Não teve erro");
+      sendToAgentCriacaoOS();
+      return;
+    }
 
-    const detalhes = [
-      `Motivo da solicitação: ${ticket.criacaoOS.motivo}`,
-      `Tipo da OS: ${ticket.criacaoOS.tipoOS === "Outras" ? `Outras - ${ticket.criacaoOS.tipoOSOutras}` : ticket.criacaoOS.tipoOS}`,
-      ticket.criacaoOS.cdc ? `CDC do cliente: ${ticket.criacaoOS.cdc}` : null,
-      `Endereço do cliente: ${ticket.criacaoOS.endereco}`,
-      ticket.criacaoOS.medidorAntigoLeitura ? `Medidor antigo e leitura: ${ticket.criacaoOS.medidorAntigoLeitura}` : null,
-      `Medidor novo e leitura: ${ticket.criacaoOS.medidorNovoLeitura}`,
-      `Cliente é GD: ${ticket.criacaoOS.gd}`,
-      ticket.criacaoOS.leituraInjetada ? `Leitura Injetada: ${ticket.criacaoOS.leituraInjetada}` : null,
-      `Horário de alocação: ${ticket.criacaoOS.horarioAlocacao}`
-    ].filter(Boolean).join("\n");
-
-    addMsg("bot", "Obrigado! Vou te encaminhar para um atendente agora.");
-
-    bc.postMessage({
-      type: "handoff_request",
-      sessionId,
-      ticket: {
-        name: ticket.name,
-        matricula: ticket.matricula,
-        email: ticket.email,
-        regional: ticket.regional,
-        topic: ticket.topic,
-        priority: "med",
-        description: detalhes,
-        createdAt: ticket.createdAt
-      },
-      ts: Date.now()
-    });
+    if (value === "confirmacao:teve_erro") {
+      addMsg("me", "Teve erro");
+      flowState = "criacao_os_correcao";
+      addMsg("bot", "Qual foi o erro? Escreva o que precisa corrigir.");
+      return;
+    }
   }
 
   function handleFlowInput(txt) {
@@ -535,7 +614,122 @@
 
     if (flowState === "criacao_os_horario_alocacao") {
       ticket.criacaoOS.horarioAlocacao = txt;
-      maybeFinishCriacaoOS();
+      flowState = "criacao_os_horario_chegada";
+      addMsg("bot", "Qual o horário de chegada?");
+      return;
+    }
+
+    if (flowState === "criacao_os_horario_chegada") {
+      ticket.criacaoOS.horarioChegada = txt;
+      flowState = "criacao_os_horario_finalizacao";
+      addMsg("bot", "Qual o horário de finalização?");
+      return;
+    }
+
+    if (flowState === "criacao_os_horario_finalizacao") {
+      ticket.criacaoOS.horarioFinalizacao = txt;
+      flowState = "criacao_os_km_inicial";
+      addMsg("bot", "Qual o KM inicial?");
+      return;
+    }
+
+    if (flowState === "criacao_os_km_inicial") {
+      ticket.criacaoOS.kmInicial = txt;
+      flowState = "criacao_os_km_final";
+      addMsg("bot", "Qual o KM final?");
+      return;
+    }
+
+    if (flowState === "criacao_os_km_final") {
+      ticket.criacaoOS.kmFinal = txt;
+      flowState = "criacao_os_selos";
+      addMenu("Teve instalação de selos?", [
+        { value: "selos:sim", label: "SIM" },
+        { value: "selos:nao", label: "NÃO" }
+      ]);
+      return;
+    }
+
+    if (flowState === "criacao_os_selos_quais") {
+      ticket.criacaoOS.selos = txt;
+      flowState = "criacao_os_matricula1_com_selo";
+      addMsg("bot", "Informe a matrícula 1.");
+      return;
+    }
+
+    if (flowState === "criacao_os_matricula1_com_selo") {
+      ticket.criacaoOS.matricula1 = txt;
+      flowState = "criacao_os_matricula2_com_selo";
+      addMsg("bot", "Informe a matrícula 2.");
+      return;
+    }
+
+    if (flowState === "criacao_os_matricula2_com_selo") {
+      ticket.criacaoOS.matricula2 = txt;
+      flowState = "criacao_os_telefone";
+      addMsg("bot", "Qual o telefone para contato?");
+      return;
+    }
+
+    if (flowState === "criacao_os_matricula1_sem_selo") {
+      ticket.criacaoOS.matricula1 = txt;
+      flowState = "criacao_os_matricula2_sem_selo";
+      addMsg("bot", "Informe a matrícula do eletricista 2.");
+      return;
+    }
+
+    if (flowState === "criacao_os_matricula2_sem_selo") {
+      ticket.criacaoOS.matricula2 = txt;
+      flowState = "criacao_os_telefone";
+      addMsg("bot", "Qual o telefone para contato?");
+      return;
+    }
+
+    if (flowState === "criacao_os_telefone") {
+      ticket.criacaoOS.telefoneContato = txt;
+      flowState = "criacao_os_deposito";
+      addMsg("bot", "Qual o depósito da equipe?");
+      return;
+    }
+
+    if (flowState === "criacao_os_deposito") {
+      ticket.criacaoOS.depositoEquipe = txt;
+      flowState = "criacao_os_materiais";
+      addMsg("bot", "Se teve material, informe quais materiais utilizaram. Se não teve, escreva: não.");
+      return;
+    }
+
+    if (flowState === "criacao_os_materiais") {
+      ticket.criacaoOS.materiais = txt;
+      flowState = "criacao_os_trafo";
+      addMsg("bot", "Qual o trafo?");
+      return;
+    }
+
+    if (flowState === "criacao_os_trafo") {
+      ticket.criacaoOS.trafo = txt;
+      flowState = "criacao_os_roteiro";
+      addMsg("bot", "Qual o roteiro?");
+      return;
+    }
+
+    if (flowState === "criacao_os_roteiro") {
+      ticket.criacaoOS.roteiro = txt;
+      showConfirmacaoResumo();
+      return;
+    }
+
+    if (flowState === "criacao_os_correcao") {
+      ticket.criacaoOS.correcaoSolicitada = txt;
+      addMsg("bot", "Entendi. Atualize agora as informações corretas nesta mesma mensagem, de forma completa.");
+      flowState = "criacao_os_correcao_texto_final";
+      return;
+    }
+
+    if (flowState === "criacao_os_correcao_texto_final") {
+      ticket.criacaoOS.correcaoSolicitada += `\nCorreção enviada pelo usuário: ${txt}`;
+      showConfirmacaoResumo();
+      return;
     }
   }
 
