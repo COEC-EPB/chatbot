@@ -28,6 +28,7 @@
     input{flex:1;padding:12px 12px;border-radius:12px;border:1px solid var(--border);background:#0a142a;color:var(--text);outline:none}
     button{padding:12px 14px;border-radius:12px;border:1px solid var(--border);background:#0c1a35;color:var(--text);cursor:pointer}
     button:hover{filter:brightness(1.08)}
+    button:disabled, input:disabled{opacity:.6;cursor:not-allowed}
     .hint{font-size:12px;color:var(--muted)}
     .prio{font-size:12px;padding:4px 8px;border-radius:999px;border:1px solid var(--border);color:var(--muted)}
     .prio.low{border-color:rgba(25,179,122,.35);color:#a8f0d7;background:rgba(25,179,122,.10)}
@@ -40,17 +41,33 @@
     <div class="top">
       <div>
         <h2 style="margin:0 0 6px">Chat (Usuário)</h2>
-        <div class="hint">Abra também o <b>agent.html</b> em outra aba para simular o atendente.</div>
+        <div class="hint">O usuário pode entrar direto pelo login do Worker.</div>
       </div>
       <div class="row">
-        <span class="badge" id="statusBadge">Status: Chatbot</span>
-        <span class="badge">Sessão: <span id="sid"></span></span>
+        <span class="badge" id="statusBadge">Status: Carregando…</span>
+        <span class="badge">Sessão Chat: <span id="sid"></span></span>
         <span class="badge">Nome: <span id="uname">—</span></span>
+        <span class="badge">Matrícula: <span id="umat">—</span></span>
+        <span class="badge">Regional: <span id="ureg">—</span></span>
         <span class="prio low" id="prioPill" style="display:none"></span>
       </div>
     </div>
 
-    <div class="card">
+    <div class="card" id="loginCard" style="display:none; max-width:460px; margin:20px auto 0;">
+      <div style="padding:18px;">
+        <h3 style="margin-top:0;">Entrar</h3>
+        <div class="hint" style="margin-bottom:12px;">Faça login para usar o chat.</div>
+
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          <input id="loginMatricula" placeholder="Matrícula" />
+          <input id="loginSenha" type="password" placeholder="Senha" />
+          <button id="loginBtn">Entrar</button>
+          <div id="loginMsg" class="hint"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="chatCard" style="display:none;">
       <div class="chat" id="chat"></div>
       <div class="bar">
         <input id="text" placeholder="Digite sua mensagem..." autocomplete="off" />
@@ -58,10 +75,10 @@
       </div>
     </div>
   </div>
-
 <script>
 (() => {
-  // ========= Sessão =========
+  const API_BASE = "https://long-hall-0aaa.pedro-fillype.workers.dev";
+
   const sessionId = localStorage.getItem("demo_session_id")
     || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
   localStorage.setItem("demo_session_id", sessionId);
@@ -69,31 +86,38 @@
 
   const bc = new BroadcastChannel("support_chat_demo_v2");
 
-  // ========= UI =========
+  const $chatCard = document.getElementById("chatCard");
+  const $loginCard = document.getElementById("loginCard");
+  const $loginMatricula = document.getElementById("loginMatricula");
+  const $loginSenha = document.getElementById("loginSenha");
+  const $loginBtn = document.getElementById("loginBtn");
+  const $loginMsg = document.getElementById("loginMsg");
+
   const $chat = document.getElementById("chat");
   const $text = document.getElementById("text");
   const $send = document.getElementById("send");
   const $badge = document.getElementById("statusBadge");
   const $uname = document.getElementById("uname");
+  const $umat = document.getElementById("umat");
+  const $ureg = document.getElementById("ureg");
   const $prioPill = document.getElementById("prioPill");
 
-  // ========= Estado =========
-  let mode = "bot"; // bot | wizard | waiting | agent
+  let mode = "loading";
   let agentConnected = false;
-
-  // wizard steps
-  // 0 nome -> 1 assunto -> 2 prioridade -> 3 descrição -> encaminhar
   let wizardStep = 0;
+  let me = null;
 
   const ticket = {
-    name: localStorage.getItem("demo_user_name") || "",
+    name: "",
+    matricula: "",
+    email: "",
+    regional: "",
     topic: "",
     priority: "",
     description: "",
-    createdAt: null,   // handoff request time
+    createdAt: null,
   };
 
-  // ========= Helpers =========
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, (m) => ({
       "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
@@ -116,24 +140,50 @@
   }
 
   function setBadge() {
+    if (mode === "loading") $badge.textContent = "Status: Carregando…";
+    if (mode === "login") $badge.textContent = "Status: Login necessário";
     if (mode === "bot") $badge.textContent = "Status: Chatbot";
     if (mode === "wizard") $badge.textContent = "Status: Coletando informações…";
     if (mode === "waiting") $badge.textContent = "Status: Aguardando atendente…";
     if (mode === "agent") $badge.textContent = "Status: Em atendimento humano";
   }
 
-  function setNameUI() {
-    $uname.textContent = ticket.name ? ticket.name : "—";
+  function setUserUI() {
+    $uname.textContent = ticket.name || "—";
+    $umat.textContent = ticket.matricula || "—";
+    $ureg.textContent = ticket.regional || "—";
   }
 
   function setPrioUI() {
-    if (!ticket.priority) { $prioPill.style.display = "none"; return; }
+    if (!ticket.priority) {
+      $prioPill.style.display = "none";
+      return;
+    }
     $prioPill.style.display = "inline-block";
     $prioPill.className = `prio ${ticket.priority}`;
     $prioPill.textContent =
       ticket.priority === "low" ? "Prioridade: Baixa" :
       ticket.priority === "med" ? "Prioridade: Média" :
       "Prioridade: Alta";
+  }
+
+  function setInputEnabled(enabled) {
+    $text.disabled = !enabled;
+    $send.disabled = !enabled;
+  }
+
+  function showLogin() {
+    $loginCard.style.display = "block";
+    $chatCard.style.display = "none";
+    mode = "login";
+    setBadge();
+    setInputEnabled(false);
+  }
+
+  function showChat() {
+    $loginCard.style.display = "none";
+    $chatCard.style.display = "block";
+    setInputEnabled(true);
   }
 
   function normalizePriority(txt) {
@@ -144,43 +194,88 @@
     return "";
   }
 
-  // ========= Chatbot / Wizard =========
+  async function loadMe() {
+    const resp = await fetch(`${API_BASE}/me`, {
+      method: "GET",
+      credentials: "include"
+    });
+
+    const data = await resp.json();
+
+    if (!resp.ok || !data.ok || !data.user) {
+      throw new Error(data?.error || "Não autenticado");
+    }
+
+    me = data.user;
+    ticket.name = me.nome || "";
+    ticket.matricula = me.matricula || "";
+    ticket.email = me.email || "";
+    ticket.regional = me.regional || "";
+
+    setUserUI();
+  }
+
+  async function doLogin() {
+    const matricula = $loginMatricula.value.trim();
+    const senha = $loginSenha.value.trim();
+
+    if (!matricula || !senha) {
+      $loginMsg.textContent = "Informe matrícula e senha.";
+      return;
+    }
+
+    $loginBtn.disabled = true;
+    $loginMsg.textContent = "Entrando...";
+
+    try {
+      const resp = await fetch(`${API_BASE}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ matricula, senha })
+      });
+
+      const data = await resp.json();
+
+      if (!resp.ok || !data.ok) {
+        throw new Error(data?.error || "Falha no login");
+      }
+
+      await loadMe();
+
+      showChat();
+      mode = "bot";
+      setBadge();
+      addMsg("bot", `Olá, ${ticket.name || "usuário"}! Eu sou o chatbot de atendimento.`);
+      addMsg("bot", "Se quiser falar com um atendente, digite: atendente.");
+      $loginMsg.textContent = "";
+    } catch (err) {
+      $loginMsg.textContent = err.message || "Não foi possível entrar.";
+      showLogin();
+    } finally {
+      $loginBtn.disabled = false;
+    }
+  }
+
   function startWizard() {
     mode = "wizard";
     wizardStep = 0;
     setBadge();
-    addMsg("bot", "Antes de te encaminhar, vou coletar rapidinho algumas informações 🙂");
-    if (!ticket.name) {
-      addMsg("bot", "1/4 — Qual é o seu *nome*?");
-    } else {
-      // se já tinha nome salvo, pula
-      wizardStep = 1;
-      addMsg("bot", `1/4 — Confirmando: seu nome é "${ticket.name}".`);
-      addMsg("bot", "2/4 — Sobre o que é o atendimento? (ex: acesso, erro, cobrança, dúvida)");
-    }
+    addMsg("bot", `Perfeito, ${ticket.name || "usuário"} — vou coletar rapidinho algumas informações antes de te encaminhar.`);
+    addMsg("bot", "1/3 — Sobre o que é o atendimento? (ex: acesso, erro, cobrança, dúvida)");
   }
 
   function handleWizardInput(userText) {
     const txt = userText.trim();
 
     if (wizardStep === 0) {
-      ticket.name = txt.slice(0, 60);
-      localStorage.setItem("demo_user_name", ticket.name);
-      setNameUI();
+      ticket.topic = txt.slice(0, 80);
       wizardStep = 1;
-      addMsg("bot", `Perfeito, ${ticket.name}!`);
-      addMsg("bot", "2/4 — Sobre o que é o atendimento? (ex: acesso, erro, cobrança, dúvida)");
+      addMsg("bot", "2/3 — Qual a prioridade? Responda: baixa, média ou alta.");
       return;
     }
 
     if (wizardStep === 1) {
-      ticket.topic = txt.slice(0, 80);
-      wizardStep = 2;
-      addMsg("bot", "3/4 — Qual a prioridade? Responda: *baixa*, *média* ou *alta*.");
-      return;
-    }
-
-    if (wizardStep === 2) {
       const p = normalizePriority(txt);
       if (!p) {
         addMsg("sys", "Escolha uma opção válida: baixa / média / alta.");
@@ -188,26 +283,27 @@
       }
       ticket.priority = p;
       setPrioUI();
-      wizardStep = 3;
-      addMsg("bot", "4/4 — Descreva o problema (o máximo que puder em uma mensagem).");
+      wizardStep = 2;
+      addMsg("bot", "3/3 — Descreva o problema.");
       return;
     }
 
-    if (wizardStep === 3) {
+    if (wizardStep === 2) {
       ticket.description = txt.slice(0, 1200);
-
-      // Handoff
       ticket.createdAt = Date.now();
       mode = "waiting";
       setBadge();
 
-      addMsg("bot", "Obrigado! Vou te encaminhar para um atendente agora. Só um momento…");
+      addMsg("bot", "Obrigado! Vou te encaminhar para um atendente agora.");
 
       bc.postMessage({
         type: "handoff_request",
         sessionId,
         ticket: {
           name: ticket.name,
+          matricula: ticket.matricula,
+          email: ticket.email,
+          regional: ticket.regional,
           topic: ticket.topic,
           priority: ticket.priority,
           description: ticket.description,
@@ -215,34 +311,30 @@
         },
         ts: Date.now()
       });
-
-      return;
     }
   }
 
   function botReply(userText) {
     const t = userText.toLowerCase();
 
-    // comando para atendimento humano
     const wantsHuman = ["atendente", "humano", "pessoa", "suporte", "ajuda", "urgente"].some(k => t.includes(k));
     if (wantsHuman) {
       startWizard();
       return;
     }
 
-    // “bot simples” fora do wizard
     if (t.includes("oi") || t.includes("olá") || t.includes("bom dia") || t.includes("boa tarde") || t.includes("boa noite")) {
-      addMsg("bot", "Oi! Quer falar com um atendente? Digite: atendente. Se preferir, me conte aqui o que precisa 🙂");
+      addMsg("bot", `Oi, ${ticket.name || "usuário"}! Quer falar com um atendente? Digite: atendente.`);
       return;
     }
 
-    addMsg("bot", "Entendi. Se você quiser atendimento humano, digite: atendente (eu vou coletar 4 infos rápidas antes).");
+    addMsg("bot", "Entendi. Se você quiser atendimento humano, digite: atendente.");
   }
 
-  // ========= Mensagens =========
   function send() {
     const txt = $text.value.trim();
-    if (!txt) return;
+    if (!txt || mode === "loading" || mode === "login") return;
+
     $text.value = "";
     addMsg("me", txt);
 
@@ -257,19 +349,26 @@
     }
 
     if (mode === "waiting" && !agentConnected) {
-      addMsg("bot", "Recebi sua mensagem. O atendente ainda não entrou — já já ele aparece.");
+      addMsg("bot", "Recebi sua mensagem. O atendente ainda não entrou.");
       bc.postMessage({ type:"user_message", sessionId, text: txt, ts: Date.now() });
       return;
     }
 
-    // modo agent
-    bc.postMessage({ type:"user_message", sessionId, text: txt, ts: Date.now() });
+    if (mode === "agent") {
+      bc.postMessage({ type:"user_message", sessionId, text: txt, ts: Date.now() });
+    }
   }
 
   $send.addEventListener("click", send);
-  $text.addEventListener("keydown", (e) => { if (e.key === "Enter") send(); });
+  $text.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") send();
+  });
 
-  // ========= Recebe do atendente =========
+  $loginBtn.addEventListener("click", doLogin);
+  $loginSenha.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") doLogin();
+  });
+
   bc.onmessage = (ev) => {
     const msg = ev.data || {};
     if (msg.sessionId && msg.sessionId !== sessionId) return;
@@ -297,11 +396,25 @@
     }
   };
 
-  // ========= Boot =========
-  setNameUI();
-  setPrioUI();
-  setBadge();
-  addMsg("bot", "Olá! Eu sou um chatbot simples. Se quiser falar com um humano, digite: atendente.");
+  async function boot() {
+    setBadge();
+    setUserUI();
+    setPrioUI();
+    setInputEnabled(false);
+
+    try {
+      await loadMe();
+      showChat();
+      mode = "bot";
+      setBadge();
+      addMsg("bot", `Olá, ${ticket.name || "usuário"}! Eu sou o chatbot de atendimento.`);
+      addMsg("bot", "Se quiser falar com um atendente, digite: atendente.");
+    } catch {
+      showLogin();
+    }
+  }
+
+  boot();
 })();
 </script>
 </body>
