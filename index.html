@@ -81,7 +81,7 @@
     <div class="top">
       <div>
         <h2 style="margin:0 0 6px">Chat (Usuário)</h2>
-        <div class="hint">O usuário pode entrar direto pelo login do Worker.</div>
+        <div class="hint">Fluxo inteligente para Criação de OS.</div>
       </div>
       <div class="row">
         <span class="badge" id="statusBadge">Status: Carregando…</span>
@@ -89,7 +89,6 @@
         <span class="badge">Nome: <span id="uname">—</span></span>
         <span class="badge">Matrícula: <span id="umat">—</span></span>
         <span class="badge">Regional: <span id="ureg">—</span></span>
-        <span class="prio low" id="prioPill" style="display:none"></span>
       </div>
     </div>
 
@@ -119,13 +118,12 @@
 <script>
 (() => {
   const API_BASE = "https://long-hall-0aaa.pedro-fillype.workers.dev";
+  const bc = new BroadcastChannel("support_chat_demo_v2");
 
   const sessionId = localStorage.getItem("demo_session_id")
     || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
   localStorage.setItem("demo_session_id", sessionId);
   document.getElementById("sid").textContent = sessionId.slice(0, 8);
-
-  const bc = new BroadcastChannel("support_chat_demo_v2");
 
   const $chatCard = document.getElementById("chatCard");
   const $loginCard = document.getElementById("loginCard");
@@ -141,24 +139,36 @@
   const $uname = document.getElementById("uname");
   const $umat = document.getElementById("umat");
   const $ureg = document.getElementById("ureg");
-  const $prioPill = document.getElementById("prioPill");
 
   let mode = "loading";
-  let agentConnected = false;
-  let wizardStep = 0;
   let me = null;
-  let activeMenuId = null;
+  let agentConnected = false;
 
   const ticket = {
     name: "",
     matricula: "",
     email: "",
     regional: "",
+
     topic: "",
-    priority: "",
-    description: "",
+    flow: "",
     createdAt: null,
+
+    criacaoOS: {
+      motivo: "",
+      tipoOS: "",
+      tipoOSOutras: "",
+      cdc: "",
+      endereco: "",
+      medidorAntigoLeitura: "",
+      medidorNovoLeitura: "",
+      gd: "",
+      leituraInjetada: "",
+      horarioAlocacao: ""
+    }
   };
+
+  let flowState = null;
 
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, (m) => ({
@@ -174,10 +184,9 @@
     $chat.scrollTop = $chat.scrollHeight;
   }
 
-  function addMenu(options) {
+  function addMenu(title, options) {
     const box = document.createElement("div");
     box.className = "menu-box";
-    box.id = "menu-" + Date.now();
 
     const buttons = options.map(opt => `
       <button class="menu-btn" data-value="${escapeHtml(opt.value)}">
@@ -186,7 +195,7 @@
     `).join("");
 
     box.innerHTML = `
-      <div class="menu-title">Escolha uma opção:</div>
+      <div class="menu-title">${escapeHtml(title)}</div>
       <div class="menu-buttons">${buttons}</div>
       <div class="meta">Chatbot</div>
     `;
@@ -197,17 +206,9 @@
     box.querySelectorAll(".menu-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         const value = btn.getAttribute("data-value");
-        disableMenu(box);
+        box.querySelectorAll(".menu-btn").forEach(b => b.disabled = true);
         handleMenuSelection(value);
       });
-    });
-
-    activeMenuId = box.id;
-  }
-
-  function disableMenu(menuEl) {
-    menuEl.querySelectorAll(".menu-btn").forEach(btn => {
-      btn.disabled = true;
     });
   }
 
@@ -222,7 +223,7 @@
     if (mode === "loading") $badge.textContent = "Status: Carregando…";
     if (mode === "login") $badge.textContent = "Status: Login necessário";
     if (mode === "bot") $badge.textContent = "Status: Chatbot";
-    if (mode === "wizard") $badge.textContent = "Status: Coletando informações…";
+    if (mode === "flow") $badge.textContent = "Status: Coletando informações…";
     if (mode === "waiting") $badge.textContent = "Status: Aguardando atendente…";
     if (mode === "agent") $badge.textContent = "Status: Em atendimento humano";
   }
@@ -231,19 +232,6 @@
     $uname.textContent = ticket.name || "—";
     $umat.textContent = ticket.matricula || "—";
     $ureg.textContent = ticket.regional || "—";
-  }
-
-  function setPrioUI() {
-    if (!ticket.priority) {
-      $prioPill.style.display = "none";
-      return;
-    }
-    $prioPill.style.display = "inline-block";
-    $prioPill.className = `prio ${ticket.priority}`;
-    $prioPill.textContent =
-      ticket.priority === "low" ? "Prioridade: Baixa" :
-      ticket.priority === "med" ? "Prioridade: Média" :
-      "Prioridade: Alta";
   }
 
   function setInputEnabled(enabled) {
@@ -263,14 +251,6 @@
     $loginCard.style.display = "none";
     $chatCard.style.display = "block";
     setInputEnabled(true);
-  }
-
-  function normalizePriority(txt) {
-    const t = txt.toLowerCase().trim();
-    if (["alta","alto","high","h","3"].includes(t)) return "high";
-    if (["media","média","med","m","2"].includes(t)) return "med";
-    if (["baixa","baixo","low","l","1"].includes(t)) return "low";
-    return "";
   }
 
   async function loadMe() {
@@ -321,11 +301,10 @@
       }
 
       await loadMe();
-
       showChat();
       mode = "bot";
       setBadge();
-      addMsg("bot", `Olá, ${ticket.name || "usuário"}! Eu sou o chatbot de atendimento.`);
+      addMsg("bot", `Olá, ${ticket.name || "usuário"}!`);
       addMsg("bot", "Escolha abaixo o tipo de solicitação:");
       showMainMenu();
       $loginMsg.textContent = "";
@@ -338,7 +317,23 @@
   }
 
   function showMainMenu() {
-    addMenu([
+    flowState = null;
+    ticket.topic = "";
+    ticket.flow = "";
+    ticket.criacaoOS = {
+      motivo: "",
+      tipoOS: "",
+      tipoOSOutras: "",
+      cdc: "",
+      endereco: "",
+      medidorAntigoLeitura: "",
+      medidorNovoLeitura: "",
+      gd: "",
+      leituraInjetada: "",
+      horarioAlocacao: ""
+    };
+
+    addMenu("Escolha uma opção:", [
       { value: "criacao_os", label: "1 - Criação de OS" },
       { value: "alteracao_os", label: "2 - Alteração de OS" },
       { value: "abertura_chamado", label: "3 - Abertura de Chamados" }
@@ -347,74 +342,200 @@
 
   function handleMenuSelection(value) {
     if (value === "criacao_os") {
-      ticket.topic = "Criação de OS";
       addMsg("me", "1 - Criação de OS");
-      startWizardAfterTopic();
+      startCriacaoOSFlow();
       return;
     }
 
     if (value === "alteracao_os") {
-      ticket.topic = "Alteração de OS";
       addMsg("me", "2 - Alteração de OS");
-      startWizardAfterTopic();
+      addMsg("bot", "Fluxo de Alteração de OS ainda será montado.");
       return;
     }
 
     if (value === "abertura_chamado") {
-      ticket.topic = "Abertura de Chamados";
       addMsg("me", "3 - Abertura de Chamados");
-      startWizardAfterTopic();
+      addMsg("bot", "Fluxo de Abertura de Chamados ainda será montado.");
+      return;
+    }
+
+    if (value.startsWith("tipo_os:")) {
+      const os = value.split(":")[1];
+      addMsg("me", os);
+      handleTipoOS(os);
+      return;
+    }
+
+    if (value.startsWith("tipo_os_outras:")) {
+      const os = value.split(":")[1];
+      addMsg("me", os);
+      ticket.criacaoOS.tipoOSOutras = os;
+      flowState = "criacao_os_endereco_outras";
+      addMsg("bot", "Qual o endereço do cliente?");
+      return;
+    }
+
+    if (value === "gd:sim") {
+      addMsg("me", "SIM");
+      ticket.criacaoOS.gd = "SIM";
+      flowState = "criacao_os_leitura_injetada";
+      addMsg("bot", "Qual a Leitura Injetada?");
+      return;
+    }
+
+    if (value === "gd:nao") {
+      addMsg("me", "NÃO");
+      ticket.criacaoOS.gd = "NÃO";
+      flowState = "criacao_os_horario_alocacao";
+      addMsg("bot", "Qual o Horário de alocação?");
       return;
     }
   }
 
-  function startWizardAfterTopic() {
-    mode = "wizard";
-    wizardStep = 1;
+  function startCriacaoOSFlow() {
+    mode = "flow";
     setBadge();
-    addMsg("bot", `Perfeito. Você escolheu: ${ticket.topic}.`);
-    addMsg("bot", "Agora informe a prioridade: baixa, média ou alta.");
+    ticket.topic = "Criação de OS";
+    ticket.flow = "criacao_os";
+    flowState = "criacao_os_motivo";
+    addMsg("bot", "Qual o motivo da solicitação?");
   }
 
-  function handleWizardInput(userText) {
-    const txt = userText.trim();
+  function handleTipoOS(os) {
+    ticket.criacaoOS.tipoOS = os;
 
-    if (wizardStep === 1) {
-      const p = normalizePriority(txt);
-      if (!p) {
-        addMsg("sys", "Escolha uma opção válida: baixa / média / alta.");
-        return;
-      }
-      ticket.priority = p;
-      setPrioUI();
-      wizardStep = 2;
-      addMsg("bot", "Descreva o que você precisa com mais detalhes.");
+    if (os === "79") {
+      addMsg("sys", "OS DE VISTORIA:\n\nO.S. DEVE ESTAR EXECUTADA.");
+    }
+
+    if (os === "Outras") {
+      flowState = "criacao_os_tipo_outras";
+      addMenu("Selecione o tipo da OS (Outras):", [
+        { value: "tipo_os_outras:28", label: "28" },
+        { value: "tipo_os_outras:709", label: "709" },
+        { value: "tipo_os_outras:710", label: "710" },
+        { value: "tipo_os_outras:798", label: "798" },
+        { value: "tipo_os_outras:739", label: "739" },
+        { value: "tipo_os_outras:79", label: "79" }
+      ]);
       return;
     }
 
-    if (wizardStep === 2) {
-      ticket.description = txt.slice(0, 1200);
-      ticket.createdAt = Date.now();
-      mode = "waiting";
-      setBadge();
+    flowState = "criacao_os_cdc";
+    addMsg("bot", "Qual a CDC do cliente?");
+  }
 
-      addMsg("bot", "Obrigado! Vou te encaminhar para um atendente agora.");
+  function maybeFinishCriacaoOS() {
+    ticket.createdAt = Date.now();
+    mode = "waiting";
+    setBadge();
 
-      bc.postMessage({
-        type: "handoff_request",
-        sessionId,
-        ticket: {
-          name: ticket.name,
-          matricula: ticket.matricula,
-          email: ticket.email,
-          regional: ticket.regional,
-          topic: ticket.topic,
-          priority: ticket.priority,
-          description: ticket.description,
-          createdAt: ticket.createdAt
-        },
-        ts: Date.now()
-      });
+    const detalhes = [
+      `Motivo da solicitação: ${ticket.criacaoOS.motivo}`,
+      `Tipo da OS: ${ticket.criacaoOS.tipoOS === "Outras" ? `Outras - ${ticket.criacaoOS.tipoOSOutras}` : ticket.criacaoOS.tipoOS}`,
+      ticket.criacaoOS.cdc ? `CDC do cliente: ${ticket.criacaoOS.cdc}` : null,
+      `Endereço do cliente: ${ticket.criacaoOS.endereco}`,
+      ticket.criacaoOS.medidorAntigoLeitura ? `Medidor antigo e leitura: ${ticket.criacaoOS.medidorAntigoLeitura}` : null,
+      `Medidor novo e leitura: ${ticket.criacaoOS.medidorNovoLeitura}`,
+      `Cliente é GD: ${ticket.criacaoOS.gd}`,
+      ticket.criacaoOS.leituraInjetada ? `Leitura Injetada: ${ticket.criacaoOS.leituraInjetada}` : null,
+      `Horário de alocação: ${ticket.criacaoOS.horarioAlocacao}`
+    ].filter(Boolean).join("\n");
+
+    addMsg("bot", "Obrigado! Vou te encaminhar para um atendente agora.");
+
+    bc.postMessage({
+      type: "handoff_request",
+      sessionId,
+      ticket: {
+        name: ticket.name,
+        matricula: ticket.matricula,
+        email: ticket.email,
+        regional: ticket.regional,
+        topic: ticket.topic,
+        priority: "med",
+        description: detalhes,
+        createdAt: ticket.createdAt
+      },
+      ts: Date.now()
+    });
+  }
+
+  function handleFlowInput(txt) {
+    if (ticket.flow !== "criacao_os") return;
+
+    if (flowState === "criacao_os_motivo") {
+      ticket.criacaoOS.motivo = txt;
+      flowState = "criacao_os_tipo";
+      addMenu("Qual o tipo da OS?", [
+        { value: "tipo_os:03", label: "03" },
+        { value: "tipo_os:12", label: "12" },
+        { value: "tipo_os:13", label: "13" },
+        { value: "tipo_os:79", label: "79" },
+        { value: "tipo_os:744", label: "744" },
+        { value: "tipo_os:Outras", label: "Outras" }
+      ]);
+      return;
+    }
+
+    if (flowState === "criacao_os_cdc") {
+      ticket.criacaoOS.cdc = txt;
+      flowState = "criacao_os_endereco";
+      addMsg("bot", "Qual o endereço do cliente?");
+      return;
+    }
+
+    if (flowState === "criacao_os_endereco") {
+      ticket.criacaoOS.endereco = txt;
+      flowState = "criacao_os_medidor_antigo";
+      addMsg("bot", "Qual o Medidor antigo e a leitura dele?");
+      return;
+    }
+
+    if (flowState === "criacao_os_medidor_antigo") {
+      ticket.criacaoOS.medidorAntigoLeitura = txt;
+      flowState = "criacao_os_medidor_novo";
+      addMsg("bot", "Qual o medidor Novo e a leitura?");
+      return;
+    }
+
+    if (flowState === "criacao_os_medidor_novo") {
+      ticket.criacaoOS.medidorNovoLeitura = txt;
+      flowState = "criacao_os_gd";
+      addMenu("O cliente é GD?", [
+        { value: "gd:sim", label: "SIM" },
+        { value: "gd:nao", label: "NÃO" }
+      ]);
+      return;
+    }
+
+    if (flowState === "criacao_os_endereco_outras") {
+      ticket.criacaoOS.endereco = txt;
+      flowState = "criacao_os_medidor_novo_outras";
+      addMsg("bot", "Qual o medidor novo e a leitura?");
+      return;
+    }
+
+    if (flowState === "criacao_os_medidor_novo_outras") {
+      ticket.criacaoOS.medidorNovoLeitura = txt;
+      flowState = "criacao_os_gd";
+      addMenu("O cliente é GD?", [
+        { value: "gd:sim", label: "SIM" },
+        { value: "gd:nao", label: "NÃO" }
+      ]);
+      return;
+    }
+
+    if (flowState === "criacao_os_leitura_injetada") {
+      ticket.criacaoOS.leituraInjetada = txt;
+      flowState = "criacao_os_horario_alocacao";
+      addMsg("bot", "Qual o Horário de alocação?");
+      return;
+    }
+
+    if (flowState === "criacao_os_horario_alocacao") {
+      ticket.criacaoOS.horarioAlocacao = txt;
+      maybeFinishCriacaoOS();
     }
   }
 
@@ -422,25 +543,18 @@
     const t = userText.toLowerCase();
 
     if (["menu", "inicio", "início", "voltar"].includes(t)) {
-      addMsg("bot", "Tudo bem. Escolha novamente uma opção:");
-      showMainMenu();
-      return;
-    }
-
-    const wantsHuman = ["atendente", "humano", "pessoa", "suporte", "ajuda", "urgente"].some(k => t.includes(k));
-    if (wantsHuman) {
-      addMsg("bot", "Antes de te encaminhar, escolha o tipo de solicitação:");
+      addMsg("bot", "Voltando ao menu inicial.");
       showMainMenu();
       return;
     }
 
     if (t.includes("oi") || t.includes("olá") || t.includes("bom dia") || t.includes("boa tarde") || t.includes("boa noite")) {
-      addMsg("bot", `Oi, ${ticket.name || "usuário"}! Escolha uma opção abaixo para começarmos.`);
+      addMsg("bot", `Olá, ${ticket.name || "usuário"}! Escolha uma opção abaixo.`);
       showMainMenu();
       return;
     }
 
-    addMsg("bot", "Para continuar, escolha uma opção do menu. Se quiser ver de novo, digite: menu.");
+    addMsg("bot", "Escolha uma opção no menu para continuar. Se quiser ver novamente, digite: menu.");
   }
 
   function send() {
@@ -450,8 +564,8 @@
     $text.value = "";
     addMsg("me", txt);
 
-    if (mode === "wizard") {
-      handleWizardInput(txt);
+    if (mode === "flow") {
+      handleFlowInput(txt);
       return;
     }
 
@@ -503,11 +617,6 @@
       agentConnected = false;
       mode = "bot";
       setBadge();
-      ticket.topic = "";
-      ticket.priority = "";
-      ticket.description = "";
-      ticket.createdAt = null;
-      setPrioUI();
       addMsg("sys", "Atendimento encerrado pelo atendente.");
       addMsg("bot", "Se precisar de novo, escolha uma opção abaixo:");
       showMainMenu();
@@ -516,8 +625,6 @@
 
   async function boot() {
     setBadge();
-    setUserUI();
-    setPrioUI();
     setInputEnabled(false);
 
     try {
@@ -525,9 +632,10 @@
       showChat();
       mode = "bot";
       setBadge();
-      addMsg("bot", `Olá, ${ticket.name || "usuário"}! Eu sou o chatbot de atendimento.`);
+      addMsg("bot", `Olá, ${ticket.name || "usuário"}!`);
       addMsg("bot", "Escolha abaixo o tipo de solicitação:");
       showMainMenu();
+      setInputEnabled(true);
     } catch {
       showLogin();
     }
