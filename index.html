@@ -7,110 +7,29 @@
 <title>Chatbot</title>
 
 <style>
-body{
-  background:#0b1220;
-  font-family:sans-serif;
-  margin:0;
-  display:flex;
-  justify-content:center;
+body{background:#0b1220;color:#fff;font-family:sans-serif;margin:0;display:flex;justify-content:center}
+.wrap{width:100%;max-width:600px;height:100vh;display:flex;flex-direction:column}
+.chat{flex:1;overflow:auto;padding:15px;display:flex;flex-direction:column;gap:10px}
+
+.msg{padding:10px 14px;border-radius:12px;max-width:75%}
+.me{background:#2b6cff;align-self:flex-end}
+.bot{background:#1d2a48}
+
+.menu button{
+  display:block;margin:5px 0;padding:10px;border:none;
+  background:#2b6cff;color:#fff;border-radius:8px;cursor:pointer;width:100%;
 }
 
-.wrap{
-  width:100%;
-  max-width:600px;
-  height:100vh;
-  display:flex;
-  flex-direction:column;
-}
+.bar{display:flex;gap:10px;padding:10px;border-top:1px solid #222}
+input{flex:1;padding:12px;border-radius:10px;border:none}
 
-.chat{
-  flex:1;
-  overflow-y:auto;
-  padding:15px;
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-}
+button{padding:10px;border:none;border-radius:10px;background:#2b6cff;color:#fff}
 
-/* 💬 bolhas */
-.msg{
-  padding:10px 14px;
-  border-radius:12px;
-  max-width:75%;
-  animation:fadeIn .2s ease;
-  word-break:break-word;
-}
+.attachments{background:#111;padding:10px;border-radius:10px}
+.attachment-item{display:flex;justify-content:space-between;margin:5px 0}
+.remove-btn{background:red;color:#fff;border:none;border-radius:5px}
 
-.me{
-  background:#2b6cff;
-  align-self:flex-end;
-  border-bottom-right-radius:2px;
-}
-
-.bot{
-  background:#1d2a48;
-  align-self:flex-start;
-  border-bottom-left-radius:2px;
-}
-
-/* 📎 anexos */
-.attachments{
-  background:#111;
-  border-radius:10px;
-  padding:10px;
-}
-
-.attachment-item{
-  display:flex;
-  justify-content:space-between;
-  margin:5px 0;
-}
-
-.remove-btn{
-  background:#ff4d4d;
-  border:none;
-  color:#fff;
-  border-radius:5px;
-  cursor:pointer;
-}
-
-/* 🔽 barra inferior fixa */
-.bar{
-  display:flex;
-  gap:10px;
-  padding:10px;
-  background:#0b1220;
-  border-top:1px solid #222;
-}
-
-input{
-  flex:1;
-  padding:12px;
-  border-radius:10px;
-  border:none;
-  outline:none;
-}
-
-button{
-  padding:10px 14px;
-  border:none;
-  border-radius:10px;
-  background:#2b6cff;
-  color:#fff;
-  cursor:pointer;
-}
-
-/* 🖼 imagens */
-img{
-  max-width:200px;
-  border-radius:10px;
-}
-
-/* ✨ animação */
-@keyframes fadeIn{
-  from{opacity:0; transform:translateY(5px);}
-  to{opacity:1; transform:translateY(0);}
-}
+img{max-width:200px;border-radius:10px}
 </style>
 
 </head>
@@ -120,184 +39,195 @@ img{
 <div id="chat" class="chat"></div>
 
 <div class="bar">
-<input id="text" placeholder="Digite..." autocomplete="off"/>
-<input id="fileInput" type="file" hidden multiple/>
+<input id="text" placeholder="Digite..." />
+<input id="fileInput" type="file" hidden multiple />
 <button id="attachBtn">Anexar</button>
 <button id="sendBtn">Enviar</button>
 </div>
 </div>
 
-<!-- CÓDIGO REDUZIDO PARA FOCO NAS PARTES IMPORTANTES -->
-
 <script>
+const API = "https://chatbot.pedro-fillype.workers.dev";
 
-let flowState = null;
-const ticket = {
+const chat = document.getElementById("chat");
+const input = document.getElementById("text");
+const fileInput = document.getElementById("fileInput");
+
+let flowState=null;
+
+const ticket={
   flow:null,
   attachments:[],
   criacaoOS:{},
   chamado:{}
 };
 
-/* ================= MENU ================= */
-function showMainMenu(){
-  addMenu("Escolha uma opção:",[
-    {value:"criacao_os",label:"1 - Criação de OS"},
-    {value:"abertura_chamado",label:"2 - Abertura de Chamado"}
-  ]);
+/* UI */
+function msg(type,text){
+  const d=document.createElement("div");
+  d.className="msg "+type;
+  d.innerText=text;
+  chat.appendChild(d);
+  chat.scrollTop=chat.scrollHeight;
 }
 
-/* ================= SELEÇÃO MENU ================= */
-function handleMenu(value,label){
-  addMsg("me",label);
+function img(url){
+  const d=document.createElement("div");
+  d.className="msg bot";
+  const i=document.createElement("img");
+  i.src=url;
+  d.appendChild(i);
+  chat.appendChild(d);
+}
 
-  if(value==="criacao_os"){
-    ticket.flow="criacao_os";
-    flowState="criacao_os_motivo";
-    addMsg("bot","Qual o motivo da solicitação?");
-    return;
-  }
+/* MENU */
+function menu(){
+  msg("bot","Escolha uma opção:");
 
-  if(value==="abertura_chamado"){
-    ticket.flow="chamado";
-    flowState="chamado_matricula";
-    addMsg("bot","Informe a matrícula:");
-    return;
-  }
+  const box=document.createElement("div");
+  box.className="menu";
 
-  /* ================= CHAMADO ================= */
+  const b1=document.createElement("button");
+  b1.innerText="📋 Criação de OS";
+  b1.onclick=()=>{startOS()};
 
-  if(value==="tipo_chamado:reembolso"){
-    flowState="reembolso_tipo";
-    addMenu("Qual tipo de reembolso?",[
-      {value:"reembolso:baba",label:"Auxílio Babá"},
-      {value:"reembolso:creche",label:"Creche/Educacional"},
-      {value:"reembolso:bolsa",label:"Bolsa de Estudos"},
-      {value:"reembolso:acidente",label:"Acidente de Trabalho"}
-    ]);
-    return;
-  }
+  const b2=document.createElement("button");
+  b2.innerText="📞 Abertura de Chamado";
+  b2.onclick=()=>{startChamado()};
 
-  if(value==="reembolso:baba"){
-    ticket.chamado.tipo="baba";
-    flowState="dep_nome";
-    addMsg("bot","Nome do dependente:");
-    return;
-  }
+  box.appendChild(b1);
+  box.appendChild(b2);
+  chat.appendChild(box);
+}
 
-  if(value==="reembolso:creche"){
-    ticket.chamado.tipo="creche";
-    flowState="dep_nome";
-    addMsg("bot","Nome do dependente:");
-    return;
-  }
+/* ================= OS ================= */
+function startOS(){
+  ticket.flow="os";
+  flowState="os_motivo";
+  msg("me","Criação de OS");
+  msg("bot","Qual o motivo da solicitação?");
+}
 
-  if(value==="reembolso:bolsa"){
-    ticket.chamado.tipo="bolsa";
-    flowState="bolsa_valor";
-    addMsg("bot","Qual o valor do reembolso?");
-    return;
-  }
-
-  if(value==="reembolso:acidente"){
-    ticket.chamado.tipo="acidente";
-    flowState="acidente_valor";
-    addMsg("bot","Qual o valor do reembolso?");
-    return;
-  }
+/* ================= CHAMADO ================= */
+function startChamado(){
+  ticket.flow="chamado";
+  flowState="matricula";
+  msg("me","Abertura de Chamado");
+  msg("bot","Informe a matrícula:");
 }
 
 /* ================= INPUT ================= */
-function handleFlowInput(txt){
+function send(){
+  const value=input.value.trim();
+  if(!value) return;
+
+  msg("me",value);
+  input.value="";
 
   /* ===== CHAMADO ===== */
-
-  if(flowState==="chamado_matricula"){
-    ticket.chamado.matricula=txt;
-    flowState="chamado_tel";
-    addMsg("bot","Telefone:");
+  if(flowState==="matricula"){
+    ticket.chamado.matricula=value;
+    flowState="telefone";
+    msg("bot","Telefone:");
     return;
   }
 
-  if(flowState==="chamado_tel"){
-    ticket.chamado.telefone=txt;
-    flowState="tipo_chamado";
-    addMenu("Qual chamado deseja?",[
-      {value:"tipo_chamado:reembolso",label:"Reembolso"},
-      {value:"tipo_chamado:senha",label:"Reset Senha"},
-      {value:"tipo_chamado:pda",label:"PDA problema"}
+  if(flowState==="telefone"){
+    ticket.chamado.telefone=value;
+    flowState="tipoChamado";
+
+    showMenu([
+      ["reembolso","Reembolso"],
+      ["senha","Reset Senha"],
+      ["pda","PDA com problema"]
     ]);
     return;
   }
 
-  /* ===== DEPENDENTE ===== */
-
   if(flowState==="dep_nome"){
-    ticket.chamado.nomeDependente=txt;
+    ticket.chamado.nomeDependente=value;
     flowState="dep_especial";
-    addMenu("Dependente é especial?",[
-      {value:"dep:sim",label:"SIM"},
-      {value:"dep:nao",label:"NÃO"}
+    showMenu([
+      ["sim","Dependente especial: SIM"],
+      ["nao","Dependente especial: NÃO"]
     ]);
     return;
   }
 
   if(flowState==="dep_data"){
-    ticket.chamado.dataNascimento=txt;
+    ticket.chamado.dataNascimento=value;
     flowState="dep_valor";
-    addMsg("bot","Valor do reembolso:");
+    msg("bot","Valor do reembolso:");
     return;
   }
 
   if(flowState==="dep_valor"){
-    ticket.chamado.valor=txt;
-    addMsg("bot","Agora envie os documentos (anexos).");
-    flowState="upload_docs";
+    ticket.chamado.valor=value;
+    msg("bot","Envie os documentos (anexar)");
+    flowState="upload";
     return;
   }
+}
 
-  /* ===== BOLSA ===== */
+/* ================= MENU CLICK ================= */
+function showMenu(options){
+  const box=document.createElement("div");
+  box.className="menu";
 
-  if(flowState==="bolsa_valor"){
-    ticket.chamado.valor=txt;
-    flowState="bolsa_tipo";
-    addMenu("Tipo do curso:",[
-      {value:"curso:graduacao",label:"Graduação"},
-      {value:"curso:pos",label:"Pós"},
-      {value:"curso:tecnico",label:"Técnico"}
+  options.forEach(([val,label])=>{
+    const b=document.createElement("button");
+    b.innerText=label;
+    b.onclick=()=>menuClick(val,label);
+    box.appendChild(b);
+  });
+
+  chat.appendChild(box);
+}
+
+function menuClick(val,label){
+  msg("me",label);
+
+  if(val==="reembolso"){
+    flowState="tipoReembolso";
+    showMenu([
+      ["baba","Auxílio Babá"],
+      ["creche","Creche"],
+      ["bolsa","Bolsa de Estudos"]
     ]);
     return;
   }
 
-  if(flowState==="bolsa_tipo"){
-    ticket.chamado.tipoCurso=txt;
-    addMsg("bot","Envie os documentos.");
-    flowState="upload_docs";
+  if(val==="baba" || val==="creche"){
+    ticket.chamado.tipo=val;
+    flowState="dep_nome";
+    msg("bot","Nome do dependente:");
     return;
   }
 
-  /* ===== FINAL ===== */
-  if(flowState==="upload_docs"){
-    finish();
+  if(val==="bolsa"){
+    ticket.chamado.tipo="bolsa";
+    flowState="bolsa_valor";
+    msg("bot","Valor do reembolso:");
     return;
   }
 }
 
 /* ================= UPLOAD ================= */
-async function handleSelectedFiles(files){
+fileInput.onchange=async e=>{
+  const files=Array.from(e.target.files);
 
   for(const file of files){
 
-    addMsg("bot","Enviando...");
+    msg("bot","Enviando...");
 
     const form=new FormData();
     form.append("file",file);
 
-    const res=await fetch(API_BASE+"/upload",{method:"POST",body:form});
+    const res=await fetch(API+"/upload",{method:"POST",body:form});
     const data=await res.json();
 
     if(!data.ok){
-      addMsg("bot","Erro upload");
+      msg("bot","Erro upload");
       return;
     }
 
@@ -306,33 +236,76 @@ async function handleSelectedFiles(files){
       url:data.url
     });
 
-    addMsg("me","📎 "+file.name);
+    msg("me","📎 "+file.name);
 
     if(file.type.startsWith("image/")){
-      addImage(data.url);
+      img(data.url);
     }
 
     renderAttachments();
   }
+};
+
+/* ================= LISTA ================= */
+function renderAttachments(){
+  const old=document.getElementById("attachments");
+  if(old) old.remove();
+
+  const box=document.createElement("div");
+  box.id="attachments";
+  box.className="attachments";
+
+  box.innerHTML="<b>Anexos:</b>";
+
+  ticket.attachments.forEach((a,i)=>{
+    const item=document.createElement("div");
+    item.className="attachment-item";
+
+    const name=document.createElement("span");
+    name.innerText=a.name;
+
+    const del=document.createElement("button");
+    del.className="remove-btn";
+    del.innerText="X";
+    del.onclick=()=>{
+      ticket.attachments.splice(i,1);
+      renderAttachments();
+    };
+
+    item.appendChild(name);
+    item.appendChild(del);
+    box.appendChild(item);
+  });
+
+  chat.appendChild(box);
 }
 
 /* ================= FINAL ================= */
 function finish(){
+  msg("bot","Resumo:");
 
-  addMsg("bot","Resumo:");
-
-  let resumo = JSON.stringify(ticket,null,2);
+  let resumo=JSON.stringify(ticket,null,2);
 
   if(ticket.attachments.length){
-    resumo += "\n\nAnexos:\n" + ticket.attachments.map(a=>a.url).join("\n");
+    resumo+="\n\nAnexos:\n"+ticket.attachments.map(a=>a.url).join("\n");
   }
 
-  addMsg("bot",resumo);
-  addMsg("bot","Enviado ao atendente ✔️");
+  msg("bot",resumo);
+  msg("bot","Enviado ✔️");
 }
-showMainMenu()
-</script>
 
+/* ================= EVENTS ================= */
+document.getElementById("attachBtn").onclick=()=>fileInput.click();
+document.getElementById("sendBtn").onclick=send;
+
+input.addEventListener("keydown",e=>{
+  if(e.key==="Enter") send();
+});
+
+/* INIT */
+menu();
+input.focus();
+</script>
 
 </body>
 </html>
