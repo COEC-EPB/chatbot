@@ -8,8 +8,8 @@
 
 <style>
 :root{
-  --bg:#0b1220; --card:#0f1b33; --text:#e7eefc; --muted:#9bb0d3;
-  --me:#2b6cff; --bot:#1d2a48; --agent:#19b37a; --border:#22345f;
+  --bg:#0b1220; --card:#0f1b33; --text:#e7eefc;
+  --me:#2b6cff; --bot:#1d2a48;
 }
 body{margin:0;font-family:system-ui;background:#0b1220;color:#fff}
 .wrap{max-width:900px;margin:auto;padding:20px}
@@ -20,7 +20,7 @@ body{margin:0;font-family:system-ui;background:#0b1220;color:#fff}
 .bot{background:#1d2a48}
 .bar{display:flex;padding:10px;gap:10px}
 input{flex:1;padding:10px}
-button{padding:10px}
+button{padding:10px;cursor:pointer}
 img.preview{max-width:200px;border-radius:10px;margin-top:5px}
 </style>
 
@@ -52,10 +52,12 @@ const $attachBtn = document.getElementById("attachBtn");
 const ticket = {
   flow: "criacao_os",
   attachments: [],
-  criacaoOS: { cdc:"", endereco:"", telefoneContato:"" },
-  aberturaChamado: {}
+  criacaoOS: { cdc:"", endereco:"", telefoneContato:"" }
 };
 
+/* =========================
+   UI
+========================= */
 function addMsg(type, text){
   const div = document.createElement("div");
   div.className = "msg " + type;
@@ -74,6 +76,7 @@ function addImage(url){
 
   div.appendChild(img);
   $chat.appendChild(div);
+  $chat.scrollTop = $chat.scrollHeight;
 }
 
 /* =========================
@@ -84,65 +87,82 @@ async function handleSelectedFiles(files){
   if(!list.length) return;
 
   for(const file of list){
-    addMsg("bot","📎 Enviando...");
+
+    addMsg("bot","📎 Enviando arquivo...");
 
     const form = new FormData();
     form.append("file", file);
 
     try{
-      const resp = await fetch(API_BASE+"/upload",{
-        method:"POST",
-        body:form
+      const resp = await fetch(API_BASE + "/upload", {
+        method: "POST",
+        body: form
       });
 
-      const data = await resp.json();
+      let data;
 
-      if(!data.ok){
-        addMsg("bot","Erro upload");
+      try {
+        data = await resp.json();
+      } catch {
+        addMsg("bot","Erro: resposta inválida do servidor");
+        continue;
+      }
+
+      console.log("RESPOSTA BACKEND:", data);
+
+      // 🔥 valida retorno
+      if (!data || !data.ok || !data.url) {
+        addMsg("bot","❌ Erro no upload");
+        if (data?.error) {
+          addMsg("bot","Detalhe: " + data.error);
+        }
         continue;
       }
 
       ticket.attachments.push({
-        name:file.name,
-        url:data.url
+        name: file.name,
+        url: data.url
       });
 
-      addMsg("me","Arquivo: "+file.name);
+      addMsg("me","📎 " + file.name);
 
       if(file.type.startsWith("image/")){
         addImage(data.url);
+      } else {
+        addMsg("bot","Arquivo enviado com sucesso");
       }
 
-    }catch(e){
-      addMsg("bot","Erro");
+    } catch(e){
+      console.error(e);
+      addMsg("bot","❌ Erro de conexão com o servidor");
     }
   }
+
+  $fileInput.value = "";
 }
 
 /* =========================
    VALIDAÇÃO
 ========================= */
 async function validar(){
-  const dados = ticket.criacaoOS;
-
-  const resp = await fetch(API_BASE+"/validar",{
-    method:"POST",
-    headers:{"Content-Type":"application/json"},
-    body:JSON.stringify({
-      tipo:ticket.flow,
-      dados
+  const resp = await fetch(API_BASE + "/validar", {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({
+      tipo: ticket.flow,
+      dados: ticket.criacaoOS
     })
   });
 
-  const r = await resp.json();
+  const data = await resp.json();
 
-  if(!r.ok){
-    addMsg("bot","⚠️ Erros:");
-    r.erros.forEach(e=>addMsg("bot","- "+e));
+  if(!data.ok){
+    addMsg("bot","⚠️ Corrija:");
+    data.erros.forEach(e => addMsg("bot","- " + e));
     return false;
   }
 
-  addMsg("bot","✅ OK");
+  addMsg("bot","✅ Tudo certo");
   return true;
 }
 
@@ -156,7 +176,7 @@ async function send(){
   addMsg("me",txt);
   $text.value="";
 
-  // exemplo preenchendo dados
+  // exemplo
   ticket.criacaoOS.cdc = "123";
   ticket.criacaoOS.endereco = "Rua teste";
   ticket.criacaoOS.telefoneContato = "83999999999";
@@ -166,10 +186,7 @@ async function send(){
 
   addMsg("bot","📤 Enviado ao atendente");
 
-  console.log("ENVIADO:",{
-    dados:ticket,
-    anexos:ticket.attachments
-  });
+  console.log("DADOS:", ticket);
 }
 
 /* =========================
@@ -178,8 +195,9 @@ async function send(){
 $attachBtn.onclick = ()=> $fileInput.click();
 $fileInput.onchange = (e)=> handleSelectedFiles(e.target.files);
 $send.onclick = send;
-$text.onkeydown = (e)=> e.key==="Enter" && send();
+$text.onkeydown = (e)=> e.key === "Enter" && send();
 
+/* INIT */
 addMsg("bot","Sistema pronto 🚀");
 </script>
 
