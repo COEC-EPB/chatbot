@@ -207,6 +207,50 @@ function menuClick(val,label){
   if(val==="bolsa"){
     ticket.chamado.tipo="bolsa";
     flowState="bolsa_valor";
+    if(flowState==="bolsa_valor"){
+  ticket.chamado.valor = value;
+
+  msg("bot","📎 Agora envie os documentos (clique em Anexar)");
+
+  flowState = "upload";
+  fileInput.onchange=async e=>{
+  const files=Array.from(e.target.files);
+
+  for(const file of files){
+
+    msg("bot","Enviando...");
+
+    const form=new FormData();
+    form.append("file",file);
+
+    const res=await fetch(API+"/upload",{method:"POST",body:form});
+    const data=await res.json();
+
+    if(!data.ok){
+      msg("bot","Erro upload");
+      return;
+    }
+
+    ticket.attachments.push({
+      name:file.name,
+      url:data.url
+    });
+
+    msg("me","📎 "+file.name);
+
+    if(file.type.startsWith("image/")){
+      img(data.url);
+    }
+
+    renderAttachments();
+  }
+
+  // 🔥 FINALIZA AUTOMATICAMENTE
+  if(flowState === "upload"){
+    finish();
+  }
+};
+}
     msg("bot","Valor do reembolso:");
     return;
   }
