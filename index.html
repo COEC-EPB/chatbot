@@ -20,7 +20,7 @@ body{background:#0b1220;color:#fff;font-family:sans-serif;margin:0}
 img{max-width:200px;border-radius:10px}
 .bar{display:flex;gap:10px;margin-top:10px}
 input{flex:1;padding:10px}
-button{padding:10px}
+button{padding:10px;cursor:pointer}
 </style>
 
 </head>
@@ -30,10 +30,10 @@ button{padding:10px}
 <div id="chat" class="chat"></div>
 
 <div class="bar">
-<input id="text" placeholder="Digite..." autocomplete="off" />
-<input id="fileInput" type="file" hidden multiple />
-<button onclick="fileInput.click()">Anexar</button>
-<button onclick="send()">Enviar</button>
+<input id="text" placeholder="Digite..." autocomplete="off"/>
+<input id="fileInput" type="file" hidden multiple/>
+<button id="attachBtn">Anexar</button>
+<button id="sendBtn">Enviar</button>
 </div>
 </div>
 
@@ -41,12 +41,16 @@ button{padding:10px}
 const API = "https://chatbot.pedro-fillype.workers.dev";
 
 const chat = document.getElementById("chat");
+const input = document.getElementById("text");
 const fileInput = document.getElementById("fileInput");
+const attachBtn = document.getElementById("attachBtn");
+const sendBtn = document.getElementById("sendBtn");
 
 const ticket = {
   flow:null,
   attachments:[],
-  data:{}
+  data:{},
+  step:null
 };
 
 /* ================= UI ================= */
@@ -70,41 +74,44 @@ function img(url){
 /* ================= MENU ================= */
 function menu(){
   msg("bot","Escolha:");
+
   const box=document.createElement("div");
   box.className="menu";
 
   const b1=document.createElement("button");
   b1.innerText="Criar OS";
-  b1.onclick=()=>{ticket.flow="os";msg("me","Criar OS");askOS();};
+  b1.onclick=()=>{
+    ticket.flow="os";
+    msg("me","Criar OS");
+    ticket.step="cdc";
+    msg("bot","Informe o CDC:");
+  };
 
   const b2=document.createElement("button");
   b2.innerText="Abrir Chamado";
-  b2.onclick=()=>{ticket.flow="chamado";msg("me","Abrir Chamado");askChamado();};
+  b2.onclick=()=>{
+    ticket.flow="chamado";
+    msg("me","Abrir Chamado");
+    ticket.step="matricula";
+    msg("bot","Informe matrícula:");
+  };
 
   box.appendChild(b1);
   box.appendChild(b2);
   chat.appendChild(box);
 }
 
-/* ================= FLUXO ================= */
-function askOS(){
-  msg("bot","Informe o CDC:");
-  ticket.step="cdc";
-}
-
-function askChamado(){
-  msg("bot","Informe matrícula:");
-  ticket.step="matricula";
-}
-
 /* ================= INPUT ================= */
 function send(){
-  const input=document.getElementById("text");
   const value=input.value.trim();
-  if(!value)return;
+  if(!value){
+    input.focus();
+    return;
+  }
 
   msg("me",value);
   input.value="";
+  input.focus();
 
   if(ticket.step==="cdc"){
     ticket.data.cdc=value;
@@ -139,7 +146,7 @@ fileInput.onchange=async e=>{
 
   for(const file of files){
 
-    msg("bot","Enviando...");
+    msg("bot","📎 Enviando...");
 
     const form=new FormData();
     form.append("file",file);
@@ -210,18 +217,31 @@ function finish(){
   let resumo=JSON.stringify(ticket.data,null,2);
 
   if(ticket.attachments.length){
-    resumo += "\nAnexos:\n" + ticket.attachments.map(a=>a.url).join("\n");
+    resumo += "\n\nAnexos:\n" + ticket.attachments.map(a=>a.url).join("\n");
   }
 
   msg("bot",resumo);
-
   msg("bot","Enviado ao atendente ✔️");
 
   console.log("FINAL:",ticket);
+
+  ticket.step=null;
 }
 
-/* INIT */
-menu();
+/* ================= EVENTS ================= */
+attachBtn.onclick=()=>fileInput.click();
+sendBtn.onclick=send;
+
+input.addEventListener("keydown",e=>{
+  if(e.key==="Enter") send();
+});
+
+// 🔥 CORREÇÃO DO INPUT
+input.focus();
+
+document.addEventListener("click",()=>{
+  setTimeout(()=>input.focus(),100);
+});
 </script>
 
 </body>
