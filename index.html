@@ -58,7 +58,6 @@ let flowState=null;
 const ticket={
   flow:null,
   attachments:[],
-  criacaoOS:{},
   chamado:{}
 };
 
@@ -87,28 +86,15 @@ function menu(){
   const box=document.createElement("div");
   box.className="menu";
 
-  const b1=document.createElement("button");
-  b1.innerText="📋 Criação de OS";
-  b1.onclick=()=>startOS();
+  const b=document.createElement("button");
+  b.innerText="📞 Abertura de Chamado";
+  b.onclick=startChamado;
 
-  const b2=document.createElement("button");
-  b2.innerText="📞 Abertura de Chamado";
-  b2.onclick=()=>startChamado();
-
-  box.appendChild(b1);
-  box.appendChild(b2);
+  box.appendChild(b);
   chat.appendChild(box);
 }
 
-/* OS */
-function startOS(){
-  ticket.flow="os";
-  flowState="os_motivo";
-  msg("me","Criação de OS");
-  msg("bot","Qual o motivo da solicitação?");
-}
-
-/* CHAMADO */
+/* INICIO */
 function startChamado(){
   ticket.flow="chamado";
   flowState="matricula";
@@ -136,9 +122,7 @@ function send(){
     flowState="tipoChamado";
 
     showMenu([
-      ["reembolso","Reembolso"],
-      ["senha","Reset Senha"],
-      ["pda","PDA com problema"]
+      ["reembolso","Reembolso"]
     ]);
     return;
   }
@@ -185,9 +169,9 @@ function menuClick(val,label){
 
   if(val==="reembolso"){
     showMenu([
+      ["bolsa","Bolsa de Estudos"],
       ["baba","Auxílio Babá"],
-      ["creche","Creche"],
-      ["bolsa","Bolsa de Estudos"]
+      ["creche","Creche"]
     ]);
     return;
   }
@@ -213,7 +197,7 @@ fileInput.onchange=async e=>{
 
   for(const file of files){
 
-    msg("bot","Enviando...");
+    msg("bot","📎 Enviando...");
 
     const form=new FormData();
     form.append("file",file);
@@ -223,7 +207,7 @@ fileInput.onchange=async e=>{
 
     if(!data.ok){
       msg("bot","Erro upload");
-      return;
+      continue;
     }
 
     ticket.attachments.push({
@@ -241,8 +225,8 @@ fileInput.onchange=async e=>{
   }
 
   if(flowState==="upload" && ticket.attachments.length){
-  finish();
-}
+    finish();
+  }
 };
 
 /* LISTA */
@@ -282,23 +266,20 @@ function renderAttachments(){
 /* FINAL */
 function finish(){
 
-  msg("bot","Gerando envio para WhatsApp...");
-
   let texto = "📋 *Novo Atendimento*\n\n";
 
-  if(ticket.flow === "chamado"){
-    texto += "📞 *Chamado*\n";
-    texto += `Matrícula: ${ticket.chamado.matricula || ""}\n`;
-    texto += `Telefone: ${ticket.chamado.telefone || ""}\n`;
-    texto += `Tipo: ${ticket.chamado.tipo || ""}\n`;
+  const a = ticket.chamado;
 
-    if(ticket.chamado.valor){
-      texto += `Valor: R$ ${ticket.chamado.valor}\n`;
-    }
+  texto += `Matrícula: ${a.matricula}\n`;
+  texto += `Telefone: ${a.telefone}\n`;
+  texto += `Tipo: ${a.tipo}\n`;
 
-    if(ticket.chamado.nomeDependente){
-      texto += `Dependente: ${ticket.chamado.nomeDependente}\n`;
-    }
+  if(a.valor){
+    texto += `Valor: R$ ${a.valor}\n`;
+  }
+
+  if(a.nomeDependente){
+    texto += `Dependente: ${a.nomeDependente}\n`;
   }
 
   if(ticket.attachments.length){
@@ -308,18 +289,18 @@ function finish(){
     });
   }
 
+  if(a.telefone){
+    const tel = a.telefone.replace(/\D/g,"");
+    texto += `\n📲 Cliente:\nhttps://wa.me/55${tel}\n`;
+  }
+
   const encoded = encodeURIComponent(texto);
+  const telefoneAtendente = "5583991825276";
 
-  const telefone = "5583991825276";
-
-  const url = `https://wa.me/${telefone}?text=${encoded}`;
+  const url = `https://wa.me/${telefoneAtendente}?text=${encoded}`;
 
   msg("bot","📲 Abrindo WhatsApp...");
-
-  // 🔥 CORREÇÃO AQUI
   window.location.href = url;
-
-  flowState = null;
 }
 
 /* EVENTS */
