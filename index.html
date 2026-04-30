@@ -1,1301 +1,187 @@
 <!doctype html>
+
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Chat - Usuário</title>
-  <style>
-    :root{
-      --bg:#0b1220; --card:#0f1b33; --text:#e7eefc; --muted:#9bb0d3;
-      --me:#2b6cff; --bot:#1d2a48; --agent:#19b37a; --border:#22345f;
-      --warn:#ffb020; --danger:#ff4d4d; --ok:#19b37a;
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family:system-ui,Segoe UI,Arial;
-      background:linear-gradient(180deg,#070c16,#0b1220);
-      color:var(--text)
-    }
-    .wrap{max-width:980px;margin:0 auto;padding:18px}
-    .top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
-    .badge{
-      font-size:12px;padding:6px 10px;border:1px solid var(--border);
-      border-radius:999px;color:var(--muted)
-    }
-    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-    .card{
-      margin-top:14px;background:rgba(15,27,51,.85);
-      border:1px solid var(--border);border-radius:16px;overflow:hidden
-    }
-    .chat{
-      height:70vh;overflow:auto;padding:14px;
-      display:flex;flex-direction:column;gap:10px
-    }
-    .msg{
-      max-width:82%;padding:10px 12px;border-radius:14px;
-      line-height:1.3;border:1px solid transparent;white-space:pre-wrap
-    }
-    .me{align-self:flex-end;background:rgba(43,108,255,.18);border-color:rgba(43,108,255,.35)}
-    .bot{align-self:flex-start;background:rgba(29,42,72,.9);border-color:rgba(34,52,95,.9)}
-    .agent{align-self:flex-start;background:rgba(25,179,122,.14);border-color:rgba(25,179,122,.35)}
-    .sys{align-self:center;background:rgba(255,176,32,.12);border-color:rgba(255,176,32,.25);max-width:92%}
-    .meta{font-size:11px;color:var(--muted);margin-top:4px}
-    .bar{
-      display:flex;gap:10px;padding:12px;border-top:1px solid var(--border);
-      background:rgba(10,16,30,.65)
-    }
-    input{
-      flex:1;padding:12px;border-radius:12px;border:1px solid var(--border);
-      background:#0a142a;color:var(--text);outline:none
-    }
-    button{
-      padding:12px 14px;border-radius:12px;border:1px solid var(--border);
-      background:#0c1a35;color:var(--text);cursor:pointer
-    }
-    button:hover{filter:brightness(1.08)}
-    button:disabled, input:disabled{opacity:.6;cursor:not-allowed}
-    .hint{font-size:12px;color:var(--muted)}
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Chat - Usuário</title>
 
-    .menu-box{
-      align-self:flex-start;
-      max-width:90%;
-      background:rgba(29,42,72,.9);
-      border:1px solid rgba(34,52,95,.9);
-      border-radius:14px;
-      padding:12px;
-    }
-    .menu-title{
-      font-size:14px;
-      margin-bottom:10px;
-      color:var(--text);
-      font-weight:600;
-    }
-    .menu-buttons{
-      display:flex;
-      flex-direction:column;
-      gap:8px;
-    }
-    .menu-btn{
-      width:100%;
-      text-align:left;
-      background:#13213f;
-      border:1px solid #29406d;
-      border-radius:12px;
-      padding:10px 12px;
-      color:var(--text);
-      cursor:pointer;
-      transition:.2s;
-    }
-    .menu-btn:hover{
-      filter:brightness(1.08);
-      transform:translateY(-1px);
-    }
-    .menu-btn:disabled{
-      opacity:.6;
-      cursor:not-allowed;
-      transform:none;
-    }
-    .upload-box{
-  align-self:flex-start;
-  max-width:90%;
-  background:rgba(255,176,32,.12);
-  border:1px solid rgba(255,176,32,.35);
-  border-radius:14px;
-  padding:12px;
+<style>
+:root{
+  --bg:#0b1220; --card:#0f1b33; --text:#e7eefc; --muted:#9bb0d3;
+  --me:#2b6cff; --bot:#1d2a48; --agent:#19b37a; --border:#22345f;
 }
-.upload-title{
-  font-size:14px;
-  font-weight:700;
-  color:#ffe2a6;
-  margin-bottom:6px;
-}
-.upload-sub{
-  font-size:12px;
-  color:var(--muted);
-}
-  </style>
+body{margin:0;font-family:system-ui;background:#0b1220;color:#fff}
+.wrap{max-width:900px;margin:auto;padding:20px}
+.card{background:#0f1b33;border-radius:12px;overflow:hidden}
+.chat{height:70vh;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:10px}
+.msg{padding:10px;border-radius:10px;max-width:80%}
+.me{background:#2b6cff;align-self:flex-end}
+.bot{background:#1d2a48}
+.bar{display:flex;padding:10px;gap:10px}
+input{flex:1;padding:10px}
+button{padding:10px}
+img.preview{max-width:200px;border-radius:10px;margin-top:5px}
+</style>
+
 </head>
+
 <body>
-  <div class="wrap">
-    <div class="top">
-      <div>
-        <h2 style="margin:0 0 6px">Chat (Usuário)</h2>
-        <div class="hint">Fluxos guiados para Criação de OS e Abertura de Chamados.</div>
-      </div>
-      <div class="row">
-        <span class="badge" id="statusBadge">Status: Carregando…</span>
-        <span class="badge">Sessão Chat: <span id="sid"></span></span>
-        <span class="badge">Nome: <span id="uname">—</span></span>
-        <span class="badge">Matrícula: <span id="umat">—</span></span>
-        <span class="badge">Regional: <span id="ureg">—</span></span>
-      </div>
-    </div>
+<div class="wrap">
+<div class="card">
+<div id="chat" class="chat"></div>
 
-    <div class="card" id="loginCard" style="display:none; max-width:460px; margin:20px auto 0;">
-      <div style="padding:18px;">
-        <h3 style="margin-top:0;">Entrar</h3>
-        <div class="hint" style="margin-bottom:12px;">Faça login para usar o chat.</div>
-        <div style="display:flex; flex-direction:column; gap:10px;">
-          <input id="loginMatricula" placeholder="Matrícula" />
-          <input id="loginSenha" type="password" placeholder="Senha" />
-          <button id="loginBtn">Entrar</button>
-          <div id="loginMsg" class="hint"></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card" id="chatCard" style="display:none;">
-      <div class="chat" id="chat"></div>
-      <div class="bar">
-        <input id="text" placeholder="Digite sua mensagem..." autocomplete="off" />
-        <input id="fileInput" type="file" multiple accept="image/*,.pdf" style="display:none" />
-        <button id="attachBtn" type="button">Anexar</button>
-        <button id="send">Enviar</button>
-      </div>
-    </div>
-  </div>
+<div class="bar">
+<input id="text" placeholder="Digite..." />
+<input id="fileInput" type="file" multiple accept="image/*,.pdf" hidden />
+<button id="attachBtn">Anexar</button>
+<button id="send">Enviar</button>
+</div>
+</div>
+</div>
 
 <script>
-(() => {
-  const API_BASE = "https://long-hall-0aaa.pedro-fillype.workers.dev";
-  const bc = new BroadcastChannel("support_chat_demo_v2");
+const API_BASE = "https://long-hall-0aaa.pedro-fillype.workers.dev";
 
-  const sessionId = localStorage.getItem("demo_session_id")
-    || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
-  localStorage.setItem("demo_session_id", sessionId);
-  document.getElementById("sid").textContent = sessionId.slice(0, 8);
+const $chat = document.getElementById("chat");
+const $text = document.getElementById("text");
+const $send = document.getElementById("send");
+const $fileInput = document.getElementById("fileInput");
+const $attachBtn = document.getElementById("attachBtn");
 
-  const $chatCard = document.getElementById("chatCard");
-  const $loginCard = document.getElementById("loginCard");
-  const $loginMatricula = document.getElementById("loginMatricula");
-  const $loginSenha = document.getElementById("loginSenha");
-  const $loginBtn = document.getElementById("loginBtn");
-  const $loginMsg = document.getElementById("loginMsg");
+const ticket = {
+  flow: "criacao_os",
+  attachments: [],
+  criacaoOS: { cdc:"", endereco:"", telefoneContato:"" },
+  aberturaChamado: {}
+};
 
-  const $chat = document.getElementById("chat");
-  const $text = document.getElementById("text");
-  const $send = document.getElementById("send");
-  const $attachBtn = document.getElementById("attachBtn");
-  const $fileInput = document.getElementById("fileInput");
-  const $badge = document.getElementById("statusBadge");
-  const $uname = document.getElementById("uname");
-  const $umat = document.getElementById("umat");
-  const $ureg = document.getElementById("ureg");
-
-  let mode = "loading";
-  let me = null;
-  let agentConnected = false;
-  let flowState = null;
-
-  const ticket = {
-    name: "",
-    matricula: "",
-    email: "",
-    regional: "",
-    topic: "",
-    flow: "",
-    createdAt: null,
-    attachments: [],
-
-    criacaoOS: {
-      motivo: "",
-      tipoOS: "",
-      tipoOSOutras: "",
-      cdc: "",
-      endereco: "",
-      medidorAntigoLeitura: "",
-      medidorNovoLeitura: "",
-      gd: "",
-      leituraInjetada: "",
-      horarioAlocacao: "",
-      horarioChegada: "",
-      horarioFinalizacao: "",
-      kmInicial: "",
-      kmFinal: "",
-      teveSelos: "",
-      selos: "",
-      matricula1: "",
-      matricula2: "",
-      telefoneContato: "",
-      depositoEquipe: "",
-      materiais: "",
-      trafo: "",
-      roteiro: "",
-      correcaoSolicitada: ""
-    },
-
-    aberturaChamado: {
-      matriculaSolicitante: "",
-      telefone: "",
-      tipoChamado: "",
-      tipoReembolso: "",
-      nomeDependente: "",
-      dependenteEspecial: "",
-      dataNascimentoDependente: "",
-      valorReembolso: "",
-      tipoCurso: "",
-      descricaoOutros: "",
-      correcaoSolicitada: ""
-    }
-  };
-
-  function addUploadPrompt(text = "ANEXE AS IMAGENS") {
-  const box = document.createElement("div");
-  box.className = "upload-box";
-  box.innerHTML = `
-    <div class="upload-title">${escapeHtml(text)}</div>
-    <div class="upload-sub">Clique no botão "Anexar" abaixo para selecionar imagens ou PDF.</div>
-    <div class="meta">Chatbot</div>
-  `;
-  $chat.appendChild(box);
+function addMsg(type, text){
+  const div = document.createElement("div");
+  div.className = "msg " + type;
+  div.innerText = text;
+  $chat.appendChild(div);
   $chat.scrollTop = $chat.scrollHeight;
 }
 
-  function escapeHtml(s){
-    return String(s).replace(/[&<>"']/g, (m) => ({
-      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
-    }[m]));
-  }
+function addImage(url){
+  const div = document.createElement("div");
+  div.className = "msg bot";
 
-  function addMsg(kind, text) {
-    const el = document.createElement("div");
-    el.className = `msg ${kind}`;
-    el.innerHTML = `<div>${escapeHtml(text)}</div><div class="meta">${labelOf(kind)}</div>`;
-    $chat.appendChild(el);
-    $chat.scrollTop = $chat.scrollHeight;
-  }
+  const img = document.createElement("img");
+  img.src = url;
+  img.className = "preview";
 
-  function addMenu(title, options) {
-    const box = document.createElement("div");
-    box.className = "menu-box";
+  div.appendChild(img);
+  $chat.appendChild(div);
+}
 
-    const buttons = options.map(opt => `
-      <button class="menu-btn" data-value="${escapeHtml(opt.value)}">
-        ${escapeHtml(opt.label)}
-      </button>
-    `).join("");
+/* =========================
+   UPLOAD
+========================= */
+async function handleSelectedFiles(files){
+  const list = Array.from(files || []);
+  if(!list.length) return;
 
-    box.innerHTML = `
-      <div class="menu-title">${escapeHtml(title)}</div>
-      <div class="menu-buttons">${buttons}</div>
-      <div class="meta">Chatbot</div>
-    `;
+  for(const file of list){
+    addMsg("bot","📎 Enviando...");
 
-    $chat.appendChild(box);
-    $chat.scrollTop = $chat.scrollHeight;
+    const form = new FormData();
+    form.append("file", file);
 
-    box.querySelectorAll(".menu-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const value = btn.getAttribute("data-value");
-        box.querySelectorAll(".menu-btn").forEach(b => b.disabled = true);
-        handleMenuSelection(value);
-      });
-    });
-  }
-
-  function labelOf(kind){
-    if (kind === "me") return "Você";
-    if (kind === "bot") return "Chatbot";
-    if (kind === "agent") return "Atendente";
-    return "Sistema";
-  }
-
-  function setBadge() {
-    if (mode === "loading") $badge.textContent = "Status: Carregando…";
-    if (mode === "login") $badge.textContent = "Status: Login necessário";
-    if (mode === "bot") $badge.textContent = "Status: Chatbot";
-    if (mode === "flow") $badge.textContent = "Status: Coletando informações…";
-    if (mode === "waiting") $badge.textContent = "Status: Aguardando atendente…";
-    if (mode === "agent") $badge.textContent = "Status: Em atendimento humano";
-  }
-
-  function setUserUI() {
-    $uname.textContent = ticket.name || "—";
-    $umat.textContent = ticket.matricula || "—";
-    $ureg.textContent = ticket.regional || "—";
-  }
-
-  function setInputEnabled(enabled) {
-    $text.disabled = !enabled;
-    $send.disabled = !enabled;
-    $attachBtn.disabled = !enabled;
-  }
-
-  function showLogin() {
-    $loginCard.style.display = "block";
-    $chatCard.style.display = "none";
-    mode = "login";
-    setBadge();
-    setInputEnabled(false);
-  }
-
-  function showChat() {
-    $loginCard.style.display = "none";
-    $chatCard.style.display = "block";
-    setInputEnabled(true);
-  }
-
-  function addAttachmentMsg(file) {
-    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-    const label = isPdf ? "PDF anexado" : "Imagem anexada";
-    addMsg("me", `${label}: ${file.name}`);
-  }
-
-  function handleSelectedFiles(files) {
-    const selected = Array.from(files || []);
-    if (!selected.length) return;
-
-    selected.forEach(file => {
-      ticket.attachments.push({
-        name: file.name,
-        type: file.type || "",
-        size: file.size || 0
-      });
-      addAttachmentMsg(file);
-    });
-
-    $fileInput.value = "";
-  }
-
-  async function loadMe() {
-    const resp = await fetch(`${API_BASE}/me`, {
-      method: "GET",
-      credentials: "include"
-    });
-
-    const data = await resp.json();
-
-    if (!resp.ok || !data.ok || !data.user) {
-      throw new Error(data?.error || "Não autenticado");
-    }
-
-    me = data.user;
-    ticket.name = me.nome || "";
-    ticket.matricula = me.matricula || "";
-    ticket.email = me.email || "";
-    ticket.regional = me.regional || "";
-    setUserUI();
-  }
-
-  async function doLogin() {
-    const matricula = $loginMatricula.value.trim();
-    const senha = $loginSenha.value.trim();
-
-    if (!matricula || !senha) {
-      $loginMsg.textContent = "Informe matrícula e senha.";
-      return;
-    }
-
-    $loginBtn.disabled = true;
-    $loginMsg.textContent = "Entrando...";
-
-    try {
-      const resp = await fetch(`${API_BASE}/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ matricula, senha })
+    try{
+      const resp = await fetch(API_BASE+"/upload",{
+        method:"POST",
+        body:form
       });
 
       const data = await resp.json();
 
-      if (!resp.ok || !data.ok) {
-        throw new Error(data?.error || "Falha no login");
+      if(!data.ok){
+        addMsg("bot","Erro upload");
+        continue;
       }
 
-      await loadMe();
-      showChat();
-      mode = "bot";
-      setBadge();
-      addMsg("bot", `Olá, ${ticket.name || "usuário"}!`);
-      addMsg("bot", "Escolha abaixo o tipo de solicitação:");
-      showMainMenu();
-      $loginMsg.textContent = "";
-    } catch (err) {
-      $loginMsg.textContent = err.message || "Não foi possível entrar.";
-      showLogin();
-    } finally {
-      $loginBtn.disabled = false;
+      ticket.attachments.push({
+        name:file.name,
+        url:data.url
+      });
+
+      addMsg("me","Arquivo: "+file.name);
+
+      if(file.type.startsWith("image/")){
+        addImage(data.url);
+      }
+
+    }catch(e){
+      addMsg("bot","Erro");
     }
   }
-
-  function resetCriacaoOS() {
-    ticket.criacaoOS = {
-      motivo: "",
-      tipoOS: "",
-      tipoOSOutras: "",
-      cdc: "",
-      endereco: "",
-      medidorAntigoLeitura: "",
-      medidorNovoLeitura: "",
-      gd: "",
-      leituraInjetada: "",
-      horarioAlocacao: "",
-      horarioChegada: "",
-      horarioFinalizacao: "",
-      kmInicial: "",
-      kmFinal: "",
-      teveSelos: "",
-      selos: "",
-      matricula1: "",
-      matricula2: "",
-      telefoneContato: "",
-      depositoEquipe: "",
-      materiais: "",
-      trafo: "",
-      roteiro: "",
-      correcaoSolicitada: ""
-    };
-  }
-
-  function resetAberturaChamado() {
-    ticket.aberturaChamado = {
-      matriculaSolicitante: "",
-      telefone: "",
-      tipoChamado: "",
-      tipoReembolso: "",
-      nomeDependente: "",
-      dependenteEspecial: "",
-      dataNascimentoDependente: "",
-      valorReembolso: "",
-      tipoCurso: "",
-      descricaoOutros: "",
-      correcaoSolicitada: ""
-    };
-  }
-
-  function resetAttachments() {
-    ticket.attachments = [];
-  }
-
-  function showMainMenu() {
-    flowState = null;
-    ticket.topic = "";
-    ticket.flow = "";
-    resetCriacaoOS();
-    resetAberturaChamado();
-    resetAttachments();
-
-    addMenu("Escolha uma opção:", [
-      { value: "criacao_os", label: "1 - Criação de OS" },
-      { value: "alteracao_os", label: "2 - Alteração de OS" },
-      { value: "abertura_chamado", label: "3 - Abertura de Chamados" }
-    ]);
-  }
-
-  function startCriacaoOSFlow() {
-    mode = "flow";
-    setBadge();
-    ticket.topic = "Criação de OS";
-    ticket.flow = "criacao_os";
-    flowState = "criacao_os_motivo";
-    addMsg("bot", "Qual o motivo da solicitação?");
-  }
-
-  function startAberturaChamadoFlow() {
-    mode = "flow";
-    setBadge();
-    ticket.topic = "Abertura de Chamados";
-    ticket.flow = "abertura_chamado";
-    flowState = "abertura_matricula";
-    addMsg("bot", "Informe a matrícula do solicitante.");
-  }
-
-  function handleTipoOS(os) {
-    ticket.criacaoOS.tipoOS = os;
-
-    if (os === "79") {
-      addMsg("sys", "OS DE VISTORIA:\n\nO.S. DEVE ESTAR EXECUTADA.");
-    }
-
-    if (os === "Outras") {
-      flowState = "criacao_os_tipo_outras";
-      addMenu("Selecione o tipo da OS (Outras):", [
-        { value: "tipo_os_outras:28", label: "28" },
-        { value: "tipo_os_outras:709", label: "709" },
-        { value: "tipo_os_outras:710", label: "710" },
-        { value: "tipo_os_outras:798", label: "798" },
-        { value: "tipo_os_outras:739", label: "739" },
-        { value: "tipo_os_outras:79", label: "79" }
-      ]);
-      return;
-    }
-
-    flowState = "criacao_os_cdc";
-    addMsg("bot", "Qual a CDC do cliente?");
-  }
-
-  function buildResumoCriacaoOS() {
-    return [
-      "Resumo da solicitação:",
-      "",
-      `Motivo da solicitação: ${ticket.criacaoOS.motivo}`,
-      `Tipo da OS: ${ticket.criacaoOS.tipoOS === "Outras" ? `Outras - ${ticket.criacaoOS.tipoOSOutras}` : ticket.criacaoOS.tipoOS}`,
-      ticket.criacaoOS.cdc ? `CDC do cliente: ${ticket.criacaoOS.cdc}` : null,
-      `Endereço do cliente: ${ticket.criacaoOS.endereco}`,
-      ticket.criacaoOS.medidorAntigoLeitura ? `Medidor antigo e leitura: ${ticket.criacaoOS.medidorAntigoLeitura}` : null,
-      `Medidor novo e leitura: ${ticket.criacaoOS.medidorNovoLeitura}`,
-      `Cliente é GD: ${ticket.criacaoOS.gd}`,
-      ticket.criacaoOS.leituraInjetada ? `Leitura Injetada: ${ticket.criacaoOS.leituraInjetada}` : null,
-      `Horário de alocação: ${ticket.criacaoOS.horarioAlocacao}`,
-      `Horário de chegada: ${ticket.criacaoOS.horarioChegada}`,
-      `Horário de finalização: ${ticket.criacaoOS.horarioFinalizacao}`,
-      `KM inicial: ${ticket.criacaoOS.kmInicial}`,
-      `KM final: ${ticket.criacaoOS.kmFinal}`,
-      `Teve instalação de selos: ${ticket.criacaoOS.teveSelos}`,
-      ticket.criacaoOS.selos ? `Selos: ${ticket.criacaoOS.selos}` : null,
-      `Matrícula 1: ${ticket.criacaoOS.matricula1}`,
-      `Matrícula 2: ${ticket.criacaoOS.matricula2}`,
-      `Telefone para contato: ${ticket.criacaoOS.telefoneContato}`,
-      `Depósito da equipe: ${ticket.criacaoOS.depositoEquipe}`,
-      `Materiais utilizados: ${ticket.criacaoOS.materiais}`,
-      `Trafo: ${ticket.criacaoOS.trafo}`,
-      `Roteiro: ${ticket.criacaoOS.roteiro}`,
-      ticket.attachments.length ? `Anexos: ${ticket.attachments.map(a => a.name).join(", ")}` : null,
-      ticket.criacaoOS.correcaoSolicitada ? `Correção solicitada: ${ticket.criacaoOS.correcaoSolicitada}` : null
-    ].filter(Boolean).join("\n");
-  }
-
-  function buildResumoAberturaChamado() {
-    const a = ticket.aberturaChamado;
-
-    return [
-      "Resumo da abertura de chamado:",
-      "",
-      `Matrícula: ${a.matriculaSolicitante}`,
-      `Telefone: ${a.telefone}`,
-      `Tipo de chamado: ${a.tipoChamado ? a.tipoChamado.replaceAll("_", " ") : ""}`,
-      a.tipoReembolso ? `Tipo de reembolso: ${a.tipoReembolso.replaceAll("_", " ")}` : null,
-      a.nomeDependente ? `Nome do dependente: ${a.nomeDependente}` : null,
-      a.dependenteEspecial ? `Dependente especial: ${a.dependenteEspecial}` : null,
-      a.dataNascimentoDependente ? `Data de nascimento do dependente: ${a.dataNascimentoDependente}` : null,
-      a.valorReembolso ? `Valor do reembolso: ${a.valorReembolso}` : null,
-      a.tipoCurso ? `Tipo do curso: ${a.tipoCurso}` : null,
-      a.descricaoOutros ? `Descrição / documentos informados: ${a.descricaoOutros}` : null,
-      ticket.attachments.length ? `Anexos: ${ticket.attachments.map(a => a.name).join(", ")}` : null,
-      a.correcaoSolicitada ? `Correção solicitada: ${a.correcaoSolicitada}` : null
-    ].filter(Boolean).join("\n");
-  }
-
-  function sendToAgentCriacaoOS() {
-    ticket.createdAt = Date.now();
-    mode = "waiting";
-    setBadge();
-
-    const detalhes = buildResumoCriacaoOS();
-
-    addMsg("bot", "Perfeito! Vou encaminhar sua solicitação para um atendente agora.");
-
-    bc.postMessage({
-      type: "handoff_request",
-      sessionId,
-      ticket: {
-        name: ticket.name,
-        matricula: ticket.matricula,
-        email: ticket.email,
-        regional: ticket.regional,
-        topic: ticket.topic,
-        priority: "med",
-        description: detalhes,
-        createdAt: ticket.createdAt
-      },
-      ts: Date.now()
-    });
-  }
-
-  function sendToAgentAberturaChamado() {
-    ticket.createdAt = Date.now();
-    mode = "waiting";
-    setBadge();
-
-    const detalhes = buildResumoAberturaChamado();
-
-    addMsg("bot", "Perfeito! Vou encaminhar sua solicitação para um atendente agora.");
-
-    bc.postMessage({
-      type: "handoff_request",
-      sessionId,
-      ticket: {
-        name: ticket.name,
-        matricula: ticket.matricula,
-        email: ticket.email,
-        regional: ticket.regional,
-        topic: ticket.topic,
-        priority: "med",
-        description: detalhes,
-        createdAt: ticket.createdAt
-      },
-      ts: Date.now()
-    });
-  }
-
-  function showConfirmacaoResumoCriacaoOS() {
-    addMsg("bot", buildResumoCriacaoOS());
-    flowState = "criacao_os_confirmacao";
-    addMenu("Está tudo certo ou teve algum erro?", [
-      { value: "confirmacao:nao_erro", label: "Não teve erro" },
-      { value: "confirmacao:teve_erro", label: "Teve erro" }
-    ]);
-  }
-
-  function showConfirmacaoResumoAbertura() {
-    addMsg("bot", buildResumoAberturaChamado());
-    flowState = "abertura_confirmacao";
-    addMenu("Está tudo certo ou teve algum erro?", [
-      { value: "abertura_confirmacao:ok", label: "Não teve erro" },
-      { value: "abertura_confirmacao:erro", label: "Teve erro" }
-    ]);
-  }
-
-  function handleMenuSelection(value) {
-    if (value === "criacao_os") {
-      addMsg("me", "1 - Criação de OS");
-      startCriacaoOSFlow();
-      return;
-    }
-
-    if (value === "alteracao_os") {
-      addMsg("me", "2 - Alteração de OS");
-      addMsg("bot", "Fluxo de Alteração de OS ainda será montado.");
-      return;
-    }
-
-    if (value === "abertura_chamado") {
-      addMsg("me", "3 - Abertura de Chamados");
-      startAberturaChamadoFlow();
-      return;
-    }
-
-    if (value.startsWith("tipo_os:")) {
-      const os = value.split(":")[1];
-      addMsg("me", os);
-      handleTipoOS(os);
-      return;
-    }
-
-    if (value.startsWith("tipo_os_outras:")) {
-      const os = value.split(":")[1];
-      addMsg("me", os);
-      ticket.criacaoOS.tipoOSOutras = os;
-      flowState = "criacao_os_endereco_outras";
-      addMsg("bot", "Qual o endereço do cliente?");
-      return;
-    }
-
-    if (value === "gd:sim") {
-      addMsg("me", "SIM");
-      ticket.criacaoOS.gd = "SIM";
-      flowState = "criacao_os_leitura_injetada";
-      addMsg("bot", "Qual a Leitura Injetada?");
-      return;
-    }
-
-    if (value === "gd:nao") {
-      addMsg("me", "NÃO");
-      ticket.criacaoOS.gd = "NÃO";
-      flowState = "criacao_os_horario_alocacao";
-      addMsg("bot", "Qual o Horário de alocação?");
-      return;
-    }
-
-    if (value === "selos:sim") {
-      addMsg("me", "SIM");
-      ticket.criacaoOS.teveSelos = "SIM";
-      flowState = "criacao_os_selos_quais";
-      addMsg("bot", "Quais são os selos?");
-      return;
-    }
-
-    if (value === "selos:nao") {
-      addMsg("me", "NÃO");
-      ticket.criacaoOS.teveSelos = "NÃO";
-      flowState = "criacao_os_matricula1_sem_selo";
-      addMsg("bot", "Informe a matrícula do eletricista 1.");
-      return;
-    }
-
-    if (value === "confirmacao:nao_erro") {
-      addMsg("me", "Não teve erro");
-      sendToAgentCriacaoOS();
-      return;
-    }
-
-    if (value === "confirmacao:teve_erro") {
-      addMsg("me", "Teve erro");
-      flowState = "criacao_os_correcao";
-      addMsg("bot", "Qual foi o erro? Escreva o que precisa corrigir.");
-      return;
-    }
-
-    if (value.startsWith("chamado_tipo:")) {
-      const tipo = value.split(":")[1];
-      addMsg("me", tipo.replaceAll("_", " "));
-      ticket.aberturaChamado.tipoChamado = tipo;
-
-      if (tipo === "Reembolso") {
-        flowState = "abertura_reembolso_tipo";
-        addMenu("Qual tipo de reembolso?", [
-          { value: "reembolso_tipo:Auxilio_Baba", label: "Auxílio Babá" },
-          { value: "reembolso_tipo:Auxilio_Creche_Educacional", label: "Auxílio Creche / Educacional" },
-          { value: "reembolso_tipo:Bolsa_de_Estudos", label: "Bolsa de Estudos" },
-          { value: "reembolso_tipo:Acidente_de_Trabalho", label: "Reembolso de acidente de trabalho" },
-          { value: "reembolso_tipo:Material_Escolar", label: "Material Escolar" },
-          { value: "reembolso_tipo:Renovacao_CNH", label: "Renovação CNH" }
-        ]);
-        return;
-      }
-
-      if (tipo === "Outros") {
-        flowState = "abertura_outros_descricao";
-        addMsg("bot", "Descreva qual chamado você deseja solicitar.");
-        return;
-      }
-
-      showConfirmacaoResumoAbertura();
-      return;
-    }
-
-    if (value.startsWith("reembolso_tipo:")) {
-      const tipo = value.split(":")[1];
-      addMsg("me", tipo.replaceAll("_", " "));
-      ticket.aberturaChamado.tipoReembolso = tipo;
-
-      if (tipo === "Auxilio_Baba" || tipo === "Auxilio_Creche_Educacional") {
-        flowState = "abertura_reembolso_nome_dependente";
-        addMsg("bot", "Qual o nome do dependente?");
-        return;
-      }
-
-      if (tipo === "Bolsa_de_Estudos") {
-        flowState = "abertura_bolsa_valor";
-        addMsg("bot", "Qual o valor do reembolso?");
-        return;
-      }
-
-      if (tipo === "Acidente_de_Trabalho") {
-        flowState = "abertura_acidente_valor";
-        addMsg("bot", "Qual o valor do reembolso?");
-        return;
-      }
-
-      if (tipo === "Material_Escolar") {
-        flowState = "abertura_material_escolar_docs";
-        addMsg("bot", "Agora anexe ou descreva os documentos do Material Escolar.");
-        addUploadPrompt("ANEXE AS IMAGENS");
-        return;
-      }
-
-      if (tipo === "Renovacao_CNH") {
-        flowState = "abertura_cnh_docs";
-        addMsg("bot", "Agora anexe ou descreva os documentos da Renovação de CNH.");
-        addUploadPrompt("ANEXE AS IMAGENS");
-        return;
-      }
-      return;
-    }
-
-    if (value === "dependente_especial:sim") {
-      addMsg("me", "SIM");
-      ticket.aberturaChamado.dependenteEspecial = "SIM";
-      flowState = "abertura_reembolso_data_nascimento";
-      addMsg("bot", "Qual a data de nascimento do dependente?");
-      return;
-    }
-
-    if (value === "dependente_especial:nao") {
-      addMsg("me", "NÃO");
-      ticket.aberturaChamado.dependenteEspecial = "NÃO";
-      flowState = "abertura_reembolso_data_nascimento";
-      addMsg("bot", "Qual a data de nascimento do dependente?");
-      return;
-    }
-
-    if (value === "tipo_curso:graduacao") {
-      addMsg("me", "Graduação");
-      ticket.aberturaChamado.tipoCurso = "Graduação";
-      flowState = "abertura_bolsa_docs";
-      addMsg("bot", "Agora anexe ou descreva os documentos: Nota Fiscal Eletrônica, contrato ou comprovante de inscrição, comprovante de cobrança e comprovante bancário de pagamento.");
-      addUploadPrompt("ANEXE AS IMAGENS");
-      return;
-    }
-
-    if (value === "tipo_curso:pos") {
-      addMsg("me", "Pós-graduação");
-      ticket.aberturaChamado.tipoCurso = "Pós-graduação";
-      flowState = "abertura_bolsa_docs";
-      addMsg("bot", "Agora anexe ou descreva os documentos: Nota Fiscal Eletrônica, contrato ou comprovante de inscrição, comprovante de cobrança e comprovante bancário de pagamento.");
-      addUploadPrompt("ANEXE AS IMAGENS");
-      return;
-    }
-
-    if (value === "tipo_curso:tecnico") {
-      addMsg("me", "Técnico");
-      ticket.aberturaChamado.tipoCurso = "Técnico";
-      flowState = "abertura_bolsa_docs";
-      addMsg("bot", "Agora anexe ou descreva os documentos: Nota Fiscal Eletrônica, contrato ou comprovante de inscrição, comprovante de cobrança e comprovante bancário de pagamento.");
-      addUploadPrompt("ANEXE AS IMAGENS");
-      return;
-    }
-
-    if (value === "abertura_confirmacao:ok") {
-      addMsg("me", "Não teve erro");
-      sendToAgentAberturaChamado();
-      return;
-    }
-
-    if (value === "abertura_confirmacao:erro") {
-      addMsg("me", "Teve erro");
-      flowState = "abertura_correcao";
-      addMsg("bot", "Qual foi o erro? Escreva o que precisa corrigir.");
-      return;
-    }
-  }
-
-  function handleFlowInput(txt) {
-    if (ticket.flow === "criacao_os") {
-      if (flowState === "criacao_os_motivo") {
-        ticket.criacaoOS.motivo = txt;
-        flowState = "criacao_os_tipo";
-        addMenu("Qual o tipo da OS?", [
-          { value: "tipo_os:03", label: "03" },
-          { value: "tipo_os:12", label: "12" },
-          { value: "tipo_os:13", label: "13" },
-          { value: "tipo_os:79", label: "79" },
-          { value: "tipo_os:744", label: "744" },
-          { value: "tipo_os:Outras", label: "Outras" }
-        ]);
-        return;
-      }
-
-      if (flowState === "criacao_os_cdc") {
-        ticket.criacaoOS.cdc = txt;
-        flowState = "criacao_os_endereco";
-        addMsg("bot", "Qual o endereço do cliente?");
-        return;
-      }
-
-      if (flowState === "criacao_os_endereco") {
-        ticket.criacaoOS.endereco = txt;
-        flowState = "criacao_os_medidor_antigo";
-        addMsg("bot", "Qual o Medidor antigo e a leitura dele?");
-        return;
-      }
-
-      if (flowState === "criacao_os_medidor_antigo") {
-        ticket.criacaoOS.medidorAntigoLeitura = txt;
-        flowState = "criacao_os_medidor_novo";
-        addMsg("bot", "Qual o medidor Novo e a leitura?");
-        return;
-      }
-
-      if (flowState === "criacao_os_medidor_novo") {
-        ticket.criacaoOS.medidorNovoLeitura = txt;
-        flowState = "criacao_os_gd";
-        addMenu("O cliente é GD?", [
-          { value: "gd:sim", label: "SIM" },
-          { value: "gd:nao", label: "NÃO" }
-        ]);
-        return;
-      }
-
-      if (flowState === "criacao_os_endereco_outras") {
-        ticket.criacaoOS.endereco = txt;
-        flowState = "criacao_os_medidor_novo_outras";
-        addMsg("bot", "Qual o medidor novo e a leitura?");
-        return;
-      }
-
-      if (flowState === "criacao_os_medidor_novo_outras") {
-        ticket.criacaoOS.medidorNovoLeitura = txt;
-        flowState = "criacao_os_gd";
-        addMenu("O cliente é GD?", [
-          { value: "gd:sim", label: "SIM" },
-          { value: "gd:nao", label: "NÃO" }
-        ]);
-        return;
-      }
-
-      if (flowState === "criacao_os_leitura_injetada") {
-        ticket.criacaoOS.leituraInjetada = txt;
-        flowState = "criacao_os_horario_alocacao";
-        addMsg("bot", "Qual o Horário de alocação?");
-        return;
-      }
-
-      if (flowState === "criacao_os_horario_alocacao") {
-        ticket.criacaoOS.horarioAlocacao = txt;
-        flowState = "criacao_os_horario_chegada";
-        addMsg("bot", "Qual o horário de chegada?");
-        return;
-      }
-
-      if (flowState === "criacao_os_horario_chegada") {
-        ticket.criacaoOS.horarioChegada = txt;
-        flowState = "criacao_os_horario_finalizacao";
-        addMsg("bot", "Qual o horário de finalização?");
-        return;
-      }
-
-      if (flowState === "criacao_os_horario_finalizacao") {
-        ticket.criacaoOS.horarioFinalizacao = txt;
-        flowState = "criacao_os_km_inicial";
-        addMsg("bot", "Qual o KM inicial?");
-        return;
-      }
-
-      if (flowState === "criacao_os_km_inicial") {
-        ticket.criacaoOS.kmInicial = txt;
-        flowState = "criacao_os_km_final";
-        addMsg("bot", "Qual o KM final?");
-        return;
-      }
-
-      if (flowState === "criacao_os_km_final") {
-        ticket.criacaoOS.kmFinal = txt;
-        flowState = "criacao_os_selos";
-        addMenu("Teve instalação de selos?", [
-          { value: "selos:sim", label: "SIM" },
-          { value: "selos:nao", label: "NÃO" }
-        ]);
-        return;
-      }
-
-      if (flowState === "criacao_os_selos_quais") {
-        ticket.criacaoOS.selos = txt;
-        flowState = "criacao_os_matricula1_com_selo";
-        addMsg("bot", "Informe a matrícula 1.");
-        return;
-      }
-
-      if (flowState === "criacao_os_matricula1_com_selo") {
-        ticket.criacaoOS.matricula1 = txt;
-        flowState = "criacao_os_matricula2_com_selo";
-        addMsg("bot", "Informe a matrícula 2.");
-        return;
-      }
-
-      if (flowState === "criacao_os_matricula2_com_selo") {
-        ticket.criacaoOS.matricula2 = txt;
-        flowState = "criacao_os_telefone";
-        addMsg("bot", "Qual o telefone para contato?");
-        return;
-      }
-
-      if (flowState === "criacao_os_matricula1_sem_selo") {
-        ticket.criacaoOS.matricula1 = txt;
-        flowState = "criacao_os_matricula2_sem_selo";
-        addMsg("bot", "Informe a matrícula do eletricista 2.");
-        return;
-      }
-
-      if (flowState === "criacao_os_matricula2_sem_selo") {
-        ticket.criacaoOS.matricula2 = txt;
-        flowState = "criacao_os_telefone";
-        addMsg("bot", "Qual o telefone para contato?");
-        return;
-      }
-
-      if (flowState === "criacao_os_telefone") {
-        ticket.criacaoOS.telefoneContato = txt;
-        flowState = "criacao_os_deposito";
-        addMsg("bot", "Qual o depósito da equipe?");
-        return;
-      }
-
-      if (flowState === "criacao_os_deposito") {
-        ticket.criacaoOS.depositoEquipe = txt;
-        flowState = "criacao_os_materiais";
-        addMsg("bot", "Se teve material, informe quais materiais utilizaram. Se não teve, escreva: não.");
-        return;
-      }
-
-      if (flowState === "criacao_os_materiais") {
-        ticket.criacaoOS.materiais = txt;
-        flowState = "criacao_os_trafo";
-        addMsg("bot", "Qual o trafo?");
-        return;
-      }
-
-      if (flowState === "criacao_os_trafo") {
-        ticket.criacaoOS.trafo = txt;
-        flowState = "criacao_os_roteiro";
-        addMsg("bot", "Qual o roteiro?");
-        return;
-      }
-
-      if (flowState === "criacao_os_roteiro") {
-        ticket.criacaoOS.roteiro = txt;
-        showConfirmacaoResumoCriacaoOS();
-        return;
-      }
-
-      if (flowState === "criacao_os_correcao") {
-        ticket.criacaoOS.correcaoSolicitada = txt;
-        addMsg("bot", "Entendi. Atualize agora as informações corretas nesta mesma mensagem, de forma completa.");
-        flowState = "criacao_os_correcao_texto_final";
-        return;
-      }
-
-      if (flowState === "criacao_os_correcao_texto_final") {
-        ticket.criacaoOS.correcaoSolicitada += `\nCorreção enviada pelo usuário: ${txt}`;
-        showConfirmacaoResumoCriacaoOS();
-        return;
-      }
-
-      return;
-    }
-
-    if (ticket.flow === "abertura_chamado") {
-      const a = ticket.aberturaChamado;
-
-      if (flowState === "abertura_matricula") {
-        a.matriculaSolicitante = txt;
-        flowState = "abertura_telefone";
-        addMsg("bot", "Informe o número de telefone.");
-        return;
-      }
-
-      if (flowState === "abertura_telefone") {
-        a.telefone = txt;
-        flowState = "abertura_tipo";
-        addMenu("Qual chamado você quer solicitar?", [
-          { value: "chamado_tipo:Reembolso", label: "Reembolso" },
-          { value: "chamado_tipo:Atualizacao_dos_Dados_Bancarios", label: "Atualização dos Dados Bancários" },
-          { value: "chamado_tipo:Reset_de_Senha", label: "Reset de Senha" },
-          { value: "chamado_tipo:Acesso_aos_Sistemas", label: "Acesso aos Sistemas" },
-          { value: "chamado_tipo:PDA_com_problema", label: "PDA com problema" },
-          { value: "chamado_tipo:Ponto", label: "Ponto" },
-          { value: "chamado_tipo:Outros", label: "Outros" }
-        ]);
-        return;
-      }
-
-      if (flowState === "abertura_reembolso_nome_dependente") {
-        a.nomeDependente = txt;
-        flowState = "abertura_reembolso_dependente_especial";
-        addMenu("O dependente é especial?", [
-          { value: "dependente_especial:sim", label: "SIM" },
-          { value: "dependente_especial:nao", label: "NÃO" }
-        ]);
-        return;
-      }
-
-      if (flowState === "abertura_reembolso_data_nascimento") {
-        a.dataNascimentoDependente = txt;
-        flowState = "abertura_reembolso_valor";
-        addMsg("bot", "Qual o valor do reembolso?");
-        return;
-      }
-
-      if (flowState === "abertura_reembolso_valor") {
-        a.valorReembolso = txt;
-
-        if (a.tipoReembolso === "Auxilio_Baba") {
-          flowState = "abertura_baba_docs";
-          addMsg("bot", "Agora anexe ou descreva os documentos: carteira de trabalho da babá, foto da carteira, foto do recibo de pagamento da babá, foto da arrecadação e-social e comprovante bancário do pagamento do e-social.");
-          addUploadPrompt("ANEXE AS IMAGENS");
-          return;
-        }
-
-        if (a.tipoReembolso === "Auxilio_Creche_Educacional") {
-          flowState = "abertura_creche_docs";
-          addMsg("bot", "Agora anexe ou descreva os documentos: contrato de prestação de serviços educacionais assinado, Nota Fiscal Eletrônica, comprovante de cobrança da mensalidade e comprovante bancário de pagamento.");
-          addUploadPrompt("ANEXE AS IMAGENS");
-          return;
-        }
-
-        return;
-      }
-
-      if (flowState === "abertura_baba_docs") {
-        a.descricaoOutros = txt;
-        showConfirmacaoResumoAbertura();
-        return;
-      }
-
-      if (flowState === "abertura_creche_docs") {
-        a.descricaoOutros = txt;
-        showConfirmacaoResumoAbertura();
-        return;
-      }
-
-      if (flowState === "abertura_bolsa_valor") {
-        a.valorReembolso = txt;
-        flowState = "abertura_bolsa_tipo_curso";
-        addMenu("Qual o tipo do curso?", [
-          { value: "tipo_curso:graduacao", label: "Graduação" },
-          { value: "tipo_curso:pos", label: "Pós-graduação" },
-          { value: "tipo_curso:tecnico", label: "Técnico" }
-        ]);
-        return;
-      }
-
-      if (flowState === "abertura_bolsa_docs") {
-        a.descricaoOutros = txt;
-        showConfirmacaoResumoAbertura();
-        return;
-      }
-
-      if (flowState === "abertura_acidente_valor") {
-        a.valorReembolso = txt;
-        flowState = "abertura_acidente_docs";
-        addMsg("bot", "Agora anexe ou descreva as fotos e documentos do reembolso por acidente de trabalho.");
-        addUploadPrompt("ANEXE AS IMAGENS");
-        return;
-      }
-
-      if (flowState === "abertura_acidente_docs") {
-        a.descricaoOutros = txt;
-        showConfirmacaoResumoAbertura();
-        return;
-      }
-
-      if (flowState === "abertura_material_escolar_docs") {
-        a.descricaoOutros = txt;
-        showConfirmacaoResumoAbertura();
-        return;
-      }
-
-      if (flowState === "abertura_cnh_docs") {
-        a.descricaoOutros = txt;
-        showConfirmacaoResumoAbertura();
-        return;
-      }
-
-      if (flowState === "abertura_outros_descricao") {
-        a.descricaoOutros = txt;
-        showConfirmacaoResumoAbertura();
-        return;
-      }
-
-      if (flowState === "abertura_correcao") {
-        a.correcaoSolicitada = txt;
-        addMsg("bot", "Atualize agora as informações corretas nesta mesma mensagem.");
-        flowState = "abertura_correcao_texto_final";
-        return;
-      }
-
-      if (flowState === "abertura_correcao_texto_final") {
-        a.correcaoSolicitada += `\nCorreção enviada pelo usuário: ${txt}`;
-        showConfirmacaoResumoAbertura();
-        return;
-      }
-    }
-  }
-
-  function botReply(userText) {
-    const t = userText.toLowerCase();
-
-    if (["menu", "inicio", "início", "voltar"].includes(t)) {
-      addMsg("bot", "Voltando ao menu inicial.");
-      showMainMenu();
-      return;
-    }
-
-    if (t.includes("oi") || t.includes("olá") || t.includes("bom dia") || t.includes("boa tarde") || t.includes("boa noite")) {
-      addMsg("bot", `Olá, ${ticket.name || "usuário"}! Escolha uma opção abaixo.`);
-      showMainMenu();
-      return;
-    }
-
-    addMsg("bot", "Escolha uma opção no menu para continuar. Se quiser ver novamente, digite: menu.");
-  }
-
-  function send() {
-    const txt = $text.value.trim();
-    if (!txt || mode === "loading" || mode === "login") return;
-
-    $text.value = "";
-    addMsg("me", txt);
-
-    if (mode === "flow") {
-      handleFlowInput(txt);
-      return;
-    }
-
-    if (mode === "bot") {
-      botReply(txt);
-      return;
-    }
-
-    if (mode === "waiting" && !agentConnected) {
-      addMsg("bot", "Recebi sua mensagem. O atendente ainda não entrou.");
-      bc.postMessage({ type:"user_message", sessionId, text: txt, ts: Date.now() });
-      return;
-    }
-
-    if (mode === "agent") {
-      bc.postMessage({ type:"user_message", sessionId, text: txt, ts: Date.now() });
-    }
-  }
-
-  $attachBtn.addEventListener("click", () => {
-    $fileInput.click();
+}
+
+/* =========================
+   VALIDAÇÃO
+========================= */
+async function validar(){
+  const dados = ticket.criacaoOS;
+
+  const resp = await fetch(API_BASE+"/validar",{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      tipo:ticket.flow,
+      dados
+    })
   });
 
-  $fileInput.addEventListener("change", (e) => {
-    handleSelectedFiles(e.target.files);
-  });
+  const r = await resp.json();
 
-  $send.addEventListener("click", send);
-  $text.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") send();
-  });
-
-  $loginBtn.addEventListener("click", doLogin);
-  $loginSenha.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") doLogin();
-  });
-
-  bc.onmessage = (ev) => {
-    const msg = ev.data || {};
-    if (msg.sessionId && msg.sessionId !== sessionId) return;
-
-    if (msg.type === "agent_joined") {
-      agentConnected = true;
-      mode = "agent";
-      setBadge();
-      addMsg("agent", "Olá! Sou o atendente. Já vi suas informações. Pode complementar algo se quiser.");
-    }
-
-    if (msg.type === "agent_message") {
-      agentConnected = true;
-      mode = "agent";
-      setBadge();
-      addMsg("agent", msg.text || "");
-    }
-
-    if (msg.type === "chat_ended") {
-      agentConnected = false;
-      mode = "bot";
-      setBadge();
-      addMsg("sys", "Atendimento encerrado pelo atendente.");
-      addMsg("bot", "Se precisar de novo, escolha uma opção abaixo:");
-      showMainMenu();
-    }
-  };
-
-  async function boot() {
-    setBadge();
-    setInputEnabled(false);
-
-    try {
-      await loadMe();
-      showChat();
-      mode = "bot";
-      setBadge();
-      addMsg("bot", `Olá, ${ticket.name || "usuário"}!`);
-      addMsg("bot", "Escolha abaixo o tipo de solicitação:");
-      showMainMenu();
-      setInputEnabled(true);
-    } catch {
-      showLogin();
-    }
+  if(!r.ok){
+    addMsg("bot","⚠️ Erros:");
+    r.erros.forEach(e=>addMsg("bot","- "+e));
+    return false;
   }
 
-  boot();
-})();
+  addMsg("bot","✅ OK");
+  return true;
+}
+
+/* =========================
+   ENVIO
+========================= */
+async function send(){
+  const txt = $text.value.trim();
+  if(!txt) return;
+
+  addMsg("me",txt);
+  $text.value="";
+
+  // exemplo preenchendo dados
+  ticket.criacaoOS.cdc = "123";
+  ticket.criacaoOS.endereco = "Rua teste";
+  ticket.criacaoOS.telefoneContato = "83999999999";
+
+  const ok = await validar();
+  if(!ok) return;
+
+  addMsg("bot","📤 Enviado ao atendente");
+
+  console.log("ENVIADO:",{
+    dados:ticket,
+    anexos:ticket.attachments
+  });
+}
+
+/* =========================
+   EVENTS
+========================= */
+$attachBtn.onclick = ()=> $fileInput.click();
+$fileInput.onchange = (e)=> handleSelectedFiles(e.target.files);
+$send.onclick = send;
+$text.onkeydown = (e)=> e.key==="Enter" && send();
+
+addMsg("bot","Sistema pronto 🚀");
 </script>
+
 </body>
 </html>
