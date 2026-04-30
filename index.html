@@ -281,18 +281,54 @@ function renderAttachments(){
 
 /* FINAL */
 function finish(){
-  msg("bot","Resumo:");
 
-  let resumo=JSON.stringify(ticket,null,2);
+  msg("bot","Gerando envio para WhatsApp...");
 
-  if(ticket.attachments.length){
-    resumo+="\n\nAnexos:\n"+ticket.attachments.map(a=>a.url).join("\n");
+  // 🔥 monta mensagem
+  let texto = "📋 *Novo Atendimento*\n\n";
+
+  if(ticket.flow === "chamado"){
+    texto += "📞 *Chamado*\n";
+    texto += `Matrícula: ${ticket.chamado.matricula || ""}\n`;
+    texto += `Telefone: ${ticket.chamado.telefone || ""}\n`;
+    texto += `Tipo: ${ticket.chamado.tipo || ""}\n`;
+
+    if(ticket.chamado.valor){
+      texto += `Valor: R$ ${ticket.chamado.valor}\n`;
+    }
+
+    if(ticket.chamado.nomeDependente){
+      texto += `Dependente: ${ticket.chamado.nomeDependente}\n`;
+    }
   }
 
-  msg("bot",resumo);
-  msg("bot","Enviado ✔️");
+  if(ticket.flow === "os"){
+    texto += "📋 *Criação de OS*\n";
+    texto += JSON.stringify(ticket.criacaoOS, null, 2) + "\n";
+  }
 
-  flowState=null;
+  // 🔗 anexos
+  if(ticket.attachments.length){
+    texto += "\n📎 *Anexos:*\n";
+    ticket.attachments.forEach(a=>{
+      texto += a.url + "\n";
+    });
+  }
+
+  // 🔥 encode
+  const encoded = encodeURIComponent(texto);
+
+  // 👉 COLOCA SEU NÚMERO AQUI (com DDI + DDD)
+  const telefone = "5583991825276";
+
+  const url = `https://wa.me/${telefone}?text=${encoded}`;
+
+  msg("bot","📲 Abrindo WhatsApp...");
+
+  // abre whatsapp
+  window.open(url, "_blank");
+
+  flowState = null;
 }
 
 /* EVENTS */
