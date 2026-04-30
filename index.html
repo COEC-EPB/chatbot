@@ -7,20 +7,110 @@
 <title>Chatbot</title>
 
 <style>
-body{background:#0b1220;color:#fff;font-family:sans-serif;margin:0}
-.wrap{max-width:900px;margin:auto;padding:20px}
-.chat{height:70vh;overflow:auto;display:flex;flex-direction:column;gap:10px}
-.msg{padding:10px;border-radius:10px;max-width:80%}
-.me{background:#2b6cff;align-self:flex-end}
-.bot{background:#1d2a48}
-.menu button{display:block;margin:5px 0;padding:8px;border:none;background:#2b6cff;color:#fff;border-radius:8px;cursor:pointer}
-.attachments{background:#111;border-radius:10px;padding:10px}
-.attachment-item{display:flex;justify-content:space-between;align-items:center;margin:5px 0}
-.remove-btn{background:red;border:none;color:#fff;padding:3px 8px;border-radius:5px;cursor:pointer}
-img{max-width:200px;border-radius:10px}
-.bar{display:flex;gap:10px;margin-top:10px}
-input{flex:1;padding:10px}
-button{padding:10px;cursor:pointer}
+body{
+  background:#0b1220;
+  font-family:sans-serif;
+  margin:0;
+  display:flex;
+  justify-content:center;
+}
+
+.wrap{
+  width:100%;
+  max-width:600px;
+  height:100vh;
+  display:flex;
+  flex-direction:column;
+}
+
+.chat{
+  flex:1;
+  overflow-y:auto;
+  padding:15px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+/* 💬 bolhas */
+.msg{
+  padding:10px 14px;
+  border-radius:12px;
+  max-width:75%;
+  animation:fadeIn .2s ease;
+  word-break:break-word;
+}
+
+.me{
+  background:#2b6cff;
+  align-self:flex-end;
+  border-bottom-right-radius:2px;
+}
+
+.bot{
+  background:#1d2a48;
+  align-self:flex-start;
+  border-bottom-left-radius:2px;
+}
+
+/* 📎 anexos */
+.attachments{
+  background:#111;
+  border-radius:10px;
+  padding:10px;
+}
+
+.attachment-item{
+  display:flex;
+  justify-content:space-between;
+  margin:5px 0;
+}
+
+.remove-btn{
+  background:#ff4d4d;
+  border:none;
+  color:#fff;
+  border-radius:5px;
+  cursor:pointer;
+}
+
+/* 🔽 barra inferior fixa */
+.bar{
+  display:flex;
+  gap:10px;
+  padding:10px;
+  background:#0b1220;
+  border-top:1px solid #222;
+}
+
+input{
+  flex:1;
+  padding:12px;
+  border-radius:10px;
+  border:none;
+  outline:none;
+}
+
+button{
+  padding:10px 14px;
+  border:none;
+  border-radius:10px;
+  background:#2b6cff;
+  color:#fff;
+  cursor:pointer;
+}
+
+/* 🖼 imagens */
+img{
+  max-width:200px;
+  border-radius:10px;
+}
+
+/* ✨ animação */
+@keyframes fadeIn{
+  from{opacity:0; transform:translateY(5px);}
+  to{opacity:1; transform:translateY(0);}
+}
 </style>
 
 </head>
@@ -58,8 +148,14 @@ function msg(type,text){
   const d=document.createElement("div");
   d.className="msg "+type;
   d.innerText=text;
+
   chat.appendChild(d);
-  chat.scrollTop=chat.scrollHeight;
+
+  // scroll suave
+  chat.scrollTo({
+    top: chat.scrollHeight,
+    behavior: "smooth"
+  });
 }
 
 function img(url){
@@ -73,25 +169,25 @@ function img(url){
 
 /* ================= MENU ================= */
 function menu(){
-  msg("bot","Escolha:");
+  msg("bot","👋 Olá! Escolha uma opção:");
 
   const box=document.createElement("div");
   box.className="menu";
 
   const b1=document.createElement("button");
-  b1.innerText="Criar OS";
+  b1.innerText="📋 Criar OS";
   b1.onclick=()=>{
     ticket.flow="os";
-    msg("me","Criar OS");
+    msg("me","📋 Criar OS");
     ticket.step="cdc";
     msg("bot","Informe o CDC:");
   };
 
   const b2=document.createElement("button");
-  b2.innerText="Abrir Chamado";
+  b2.innerText="📞 Abrir Chamado";
   b2.onclick=()=>{
     ticket.flow="chamado";
-    msg("me","Abrir Chamado");
+    msg("me","📞 Abrir Chamado");
     ticket.step="matricula";
     msg("bot","Informe matrícula:");
   };
@@ -99,6 +195,15 @@ function menu(){
   box.appendChild(b1);
   box.appendChild(b2);
   chat.appendChild(box);
+}
+
+  function typing(){
+  const d=document.createElement("div");
+  d.className="msg bot";
+  d.innerText="digitando...";
+  chat.appendChild(d);
+
+  setTimeout(()=>d.remove(),800);
 }
 
 /* ================= INPUT ================= */
