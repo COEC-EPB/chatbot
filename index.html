@@ -260,23 +260,42 @@ fileInput.onchange=async e=>{
 /* FINAL */
 function finish(){
 
-  let txt="📋 Novo Atendimento\n\n";
+  let txt = "📋 Novo Atendimento\n\n";
 
-  const a=ticket.chamado;
+  const a = ticket.chamado;
 
-  txt+=`Matrícula: ${a.matricula}\n`;
-  txt+=`Telefone: ${a.telefone}\n`;
-  txt+=`Tipo: ${a.tipo}\n`;
-  txt+=`Valor: ${a.valor}\n`;
+  txt += `Matrícula: ${a.matricula}\n`;
+  txt += `Telefone: ${a.telefone}\n`;
+  txt += `Tipo: ${a.tipo}\n`;
 
-  if(ticket.attachments.length){
-    txt+="\n📎 Anexos:\n"+ticket.attachments.join("\n");
+  if(a.valor){
+    txt += `Valor: ${a.valor}\n`;
   }
 
-  const url=`https://wa.me/5583991188662?text=${encodeURIComponent(txt)}`;
+  if(ticket.attachments.length){
+    txt += "\n📎 Anexos:\n";
+    txt += ticket.attachments.join("\n");
+  }
 
-  msg("bot","📲 Abrindo WhatsApp...");
-  window.location.href=url;
+  if(a.telefone){
+    const tel = a.telefone.replace(/\D/g,"");
+    txt += `\n📲 Cliente:\nhttps://wa.me/55${tel}\n`;
+  }
+
+  const encoded = encodeURIComponent(txt);
+  const telefoneAtendente = "5583991188662";
+
+  const url = `https://wa.me/${telefoneAtendente}?text=${encoded}`;
+
+  msg("bot","✅ Tudo pronto!");
+
+  // 🔥 BOTÃO (MELHOR UX)
+  const btn = document.createElement("button");
+  btn.innerText = "📲 Abrir WhatsApp";
+  btn.style.marginTop = "10px";
+  btn.onclick = () => window.open(url, "_blank");
+
+  chat.appendChild(btn);
 }
   document.getElementById("text").addEventListener("keydown", function(e) {
   if (e.key === "Enter") {
