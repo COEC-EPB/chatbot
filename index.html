@@ -206,6 +206,7 @@ function send(){
 
   msg("me",v);
   input.value="";
+  input.focus(); // 🔥 continua digitando
 
   if(state==="matricula"){
     ticket.chamado.matricula=v;
@@ -277,6 +278,13 @@ function finish(){
   msg("bot","📲 Abrindo WhatsApp...");
   window.location.href=url;
 }
+  document.getElementById("text").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    send();
+    this.focus(); // mantém digitando direto
+  }
+});
 
 /* INIT */
 start();
