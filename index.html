@@ -86,11 +86,20 @@ function menu(){
   const box=document.createElement("div");
   box.className="menu";
 
-  const b=document.createElement("button");
-  b.innerText="📞 Abertura de Chamado";
-  b.onclick=startChamado;
+  const b1=document.createElement("button");
+  b1.innerText="📋 Criação de OS";
+  b1.onclick=()=>{
+    msg("me","Criação de OS");
+    msg("bot","Fluxo de OS ainda será implementado...");
+  };
 
-  box.appendChild(b);
+  const b2=document.createElement("button");
+  b2.innerText="📞 Abertura de Chamado";
+  b2.onclick=startChamado;
+
+  box.appendChild(b1);
+  box.appendChild(b2);
+
   chat.appendChild(box);
 }
 
