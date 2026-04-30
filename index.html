@@ -22,6 +22,9 @@ body{margin:0;font-family:system-ui;background:#0b1220;color:#fff}
 input{flex:1;padding:10px}
 button{padding:10px;cursor:pointer}
 img.preview{max-width:200px;border-radius:10px;margin-top:5px}
+.menu-box{background:#1d2a48;padding:10px;border-radius:10px}
+.menu-btn{margin:5px 0;padding:8px;border:none;border-radius:8px;background:#2b6cff;color:#fff;cursor:pointer}
+.upload-box{background:#2a2a00;padding:10px;border-radius:10px}
 </style>
 
 </head>
@@ -50,14 +53,13 @@ const $fileInput = document.getElementById("fileInput");
 const $attachBtn = document.getElementById("attachBtn");
 
 const ticket = {
-  flow: "criacao_os",
+  flow: null,
   attachments: [],
-  criacaoOS: { cdc:"", endereco:"", telefoneContato:"" }
+  criacaoOS: {},
+  aberturaChamado: {}
 };
 
-/* =========================
-   UI
-========================= */
+/* ================= UI ================= */
 function addMsg(type, text){
   const div = document.createElement("div");
   div.className = "msg " + type;
@@ -79,9 +81,32 @@ function addImage(url){
   $chat.scrollTop = $chat.scrollHeight;
 }
 
-/* =========================
-   UPLOAD
-========================= */
+function addMenu(title, options){
+  const box = document.createElement("div");
+  box.className = "menu-box";
+
+  box.innerHTML = `<div>${title}</div>`;
+
+  options.forEach(opt=>{
+    const btn = document.createElement("button");
+    btn.className = "menu-btn";
+    btn.innerText = opt.label;
+    btn.onclick = ()=> handleMenu(opt.value, opt.label);
+    box.appendChild(btn);
+  });
+
+  $chat.appendChild(box);
+  $chat.scrollTop = $chat.scrollHeight;
+}
+
+function addUploadPrompt(){
+  const div = document.createElement("div");
+  div.className = "upload-box";
+  div.innerText = "📎 Clique em ANEXAR para enviar imagens ou PDF";
+  $chat.appendChild(div);
+}
+
+/* ================= UPLOAD ================= */
 async function handleSelectedFiles(files){
   const list = Array.from(files || []);
   if(!list.length) return;
@@ -99,106 +124,82 @@ async function handleSelectedFiles(files){
         body: form
       });
 
-      let data;
+      const data = await resp.json();
+      console.log("UPLOAD:", data);
 
-      try {
-        data = await resp.json();
-      } catch {
-        addMsg("bot","Erro: resposta inválida do servidor");
-        continue;
-      }
-
-      console.log("RESPOSTA BACKEND:", data);
-
-      // 🔥 valida retorno
-      if (!data || !data.ok || !data.url) {
+      if (!data.ok || !data.url) {
         addMsg("bot","❌ Erro no upload");
-        if (data?.error) {
-          addMsg("bot","Detalhe: " + data.error);
-        }
-        continue;
+        return;
       }
 
       ticket.attachments.push({
-        name: file.name,
-        url: data.url
+        name:file.name,
+        url:data.url
       });
 
-      addMsg("me","📎 " + file.name);
+      addMsg("me","📎 "+file.name);
 
       if(file.type.startsWith("image/")){
         addImage(data.url);
-      } else {
-        addMsg("bot","Arquivo enviado com sucesso");
       }
 
-    } catch(e){
-      console.error(e);
-      addMsg("bot","❌ Erro de conexão com o servidor");
+    }catch(e){
+      addMsg("bot","Erro ao enviar arquivo");
     }
   }
 
   $fileInput.value = "";
 }
 
-/* =========================
-   VALIDAÇÃO
-========================= */
-async function validar(){
-  const resp = await fetch(API_BASE + "/validar", {
-    method: "POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({
-      tipo: ticket.flow,
-      dados: ticket.criacaoOS
-    })
-  });
+/* ================= MENU ================= */
+function handleMenu(value, label){
+  addMsg("me", label);
 
-  const data = await resp.json();
-
-  if(!data.ok){
-    addMsg("bot","⚠️ Corrija:");
-    data.erros.forEach(e => addMsg("bot","- " + e));
-    return false;
+  if(value === "criacao_os"){
+    ticket.flow = "criacao_os";
+    addMsg("bot","Qual o motivo da solicitação?");
   }
 
-  addMsg("bot","✅ Tudo certo");
-  return true;
+  if(value === "abertura_chamado"){
+    ticket.flow = "abertura_chamado";
+    addMsg("bot","Informe a matrícula:");
+  }
 }
 
-/* =========================
-   ENVIO
-========================= */
-async function send(){
+/* ================= ENVIO ================= */
+function send(){
   const txt = $text.value.trim();
   if(!txt) return;
 
-  addMsg("me",txt);
-  $text.value="";
+  addMsg("me", txt);
+  $text.value = "";
 
-  // exemplo
-  ticket.criacaoOS.cdc = "123";
-  ticket.criacaoOS.endereco = "Rua teste";
-  ticket.criacaoOS.telefoneContato = "83999999999";
+  if(txt.toLowerCase() === "menu"){
+    start();
+    return;
+  }
 
-  const ok = await validar();
-  if(!ok) return;
-
-  addMsg("bot","📤 Enviado ao atendente");
-
-  console.log("DADOS:", ticket);
+  if(ticket.flow){
+    addMsg("bot","Continue preenchendo ou envie anexos.");
+  }
 }
 
-/* =========================
-   EVENTS
-========================= */
+/* ================= INIT ================= */
+function start(){
+  addMsg("bot","Escolha uma opção:");
+  addMenu("Menu:",[
+    {value:"criacao_os", label:"1 - Criação de OS"},
+    {value:"abertura_chamado", label:"2 - Abertura de Chamado"}
+  ]);
+}
+
+/* ================= EVENTS ================= */
 $attachBtn.onclick = ()=> $fileInput.click();
 $fileInput.onchange = (e)=> handleSelectedFiles(e.target.files);
 $send.onclick = send;
-$text.onkeydown = (e)=> e.key === "Enter" && send();
+$text.onkeydown = (e)=> e.key==="Enter" && send();
 
-/* INIT */
-addMsg("bot","Sistema pronto 🚀");
+start();
 </script>
 
 </body>
