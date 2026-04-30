@@ -4,13 +4,20 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Chat Inteligente</title>
+<title>Atendimento Energisa</title>
 
 <style>
+:root{
+  --azul:#0b2a6f;
+  --azul2:#123c9b;
+  --amarelo:#ffd400;
+  --bg:#f4f6fb;
+}
+
 body{
   margin:0;
   font-family:sans-serif;
-  background:#0b1220;
+  background:var(--bg);
   display:flex;
   justify-content:center;
 }
@@ -21,6 +28,14 @@ body{
   height:100vh;
   display:flex;
   flex-direction:column;
+  background:#fff;
+}
+
+.header{
+  background:var(--azul);
+  color:#fff;
+  padding:15px;
+  font-weight:bold;
 }
 
 .chat{
@@ -34,18 +49,20 @@ body{
 
 .msg{
   padding:10px 14px;
-  border-radius:12px;
+  border-radius:14px;
   max-width:75%;
   animation:fade .2s ease;
 }
 
 .me{
-  background:#2b6cff;
+  background:var(--azul2);
+  color:#fff;
   align-self:flex-end;
 }
 
 .bot{
-  background:#1d2a48;
+  background:#e9eefc;
+  color:#000;
 }
 
 .menu{
@@ -58,7 +75,7 @@ body{
   padding:12px;
   border:none;
   border-radius:10px;
-  background:#2b6cff;
+  background:var(--azul2);
   color:#fff;
   cursor:pointer;
 }
@@ -67,22 +84,30 @@ body{
   display:flex;
   gap:10px;
   padding:10px;
-  border-top:1px solid #222;
+  border-top:1px solid #ddd;
+  background:#fff;
 }
 
 input{
   flex:1;
   padding:12px;
-  border-radius:10px;
-  border:none;
+  border-radius:20px;
+  border:1px solid #ccc;
 }
 
 button{
-  padding:10px;
+  padding:10px 14px;
   border:none;
   border-radius:10px;
-  background:#2b6cff;
+  background:var(--azul2);
   color:#fff;
+  cursor:pointer;
+}
+
+.whats-btn{
+  background:var(--amarelo);
+  color:#000;
+  font-weight:bold;
 }
 
 img{
@@ -100,14 +125,18 @@ img{
 
 <body>
 <div class="wrap">
+
+<div class="header">⚡ Atendimento Energisa</div>
+
 <div id="chat" class="chat"></div>
 
 <div class="bar">
-<input id="text" placeholder="Digite..." />
+<input id="text" placeholder="Digite sua mensagem..." />
 <input id="fileInput" type="file" hidden multiple />
 <button onclick="fileInput.click()">📎</button>
 <button onclick="send()">➤</button>
 </div>
+
 </div>
 
 <script>
@@ -117,9 +146,9 @@ const chat = document.getElementById("chat");
 const input = document.getElementById("text");
 const fileInput = document.getElementById("fileInput");
 
-let state = null;
+let state=null;
 
-const ticket = {
+const ticket={
   chamado:{},
   attachments:[]
 };
@@ -136,23 +165,23 @@ function msg(type,text){
 function img(url){
   const d=document.createElement("div");
   d.className="msg bot";
-  d.innerHTML=`<img src="${url}"/>`;
+  d.innerHTML=`<img src="${url}">`;
   chat.appendChild(d);
 }
 
-/* limpa menus antigos */
+/* limpa menus */
 function clearMenus(){
   document.querySelectorAll(".menu").forEach(e=>e.remove());
 }
 
-/* MENU */
-function showMenu(options){
+/* menu */
+function showMenu(opts){
   clearMenus();
 
   const box=document.createElement("div");
   box.className="menu";
 
-  options.forEach(([val,label])=>{
+  opts.forEach(([val,label])=>{
     const b=document.createElement("button");
     b.innerText=label;
     b.onclick=()=>menuClick(val,label);
@@ -162,17 +191,16 @@ function showMenu(options){
   chat.appendChild(box);
 }
 
-/* INICIO */
+/* start */
 function start(){
-  msg("bot","👋 Olá! Escolha uma opção:");
-
+  msg("bot","Olá! Como posso ajudar?");
   showMenu([
     ["chamado","📞 Abertura de Chamado"],
     ["os","📋 Criação de OS"]
   ]);
 }
 
-/* MENU CLICK */
+/* menu click */
 function menuClick(val,label){
   msg("me",label);
 
@@ -199,14 +227,14 @@ function menuClick(val,label){
   }
 }
 
-/* INPUT */
+/* envio */
 function send(){
   const v=input.value.trim();
   if(!v) return;
 
   msg("me",v);
   input.value="";
-  input.focus(); // 🔥 continua digitando
+  input.focus(); // 🔥 mantém ativo
 
   if(state==="matricula"){
     ticket.chamado.matricula=v;
@@ -229,7 +257,15 @@ function send(){
   }
 }
 
-/* UPLOAD */
+/* ENTER FUNCIONANDO */
+input.addEventListener("keydown", function(e){
+  if(e.key==="Enter"){
+    e.preventDefault();
+    send();
+  }
+});
+
+/* upload */
 fileInput.onchange=async e=>{
   const files=[...e.target.files];
 
@@ -257,56 +293,37 @@ fileInput.onchange=async e=>{
   if(state==="upload") finish();
 };
 
-/* FINAL */
+/* final */
 function finish(){
 
-  let txt = "📋 Novo Atendimento\n\n";
+  let txt="📋 Novo Atendimento\n\n";
 
-  const a = ticket.chamado;
+  const a=ticket.chamado;
 
-  txt += `Matrícula: ${a.matricula}\n`;
-  txt += `Telefone: ${a.telefone}\n`;
-  txt += `Tipo: ${a.tipo}\n`;
-
-  if(a.valor){
-    txt += `Valor: ${a.valor}\n`;
-  }
+  txt+=`Matrícula: ${a.matricula}\n`;
+  txt+=`Telefone: ${a.telefone}\n`;
+  txt+=`Tipo: ${a.tipo}\n`;
+  txt+=`Valor: ${a.valor}\n`;
 
   if(ticket.attachments.length){
-    txt += "\n📎 Anexos:\n";
-    txt += ticket.attachments.join("\n");
+    txt+="\n📎 Anexos:\n"+ticket.attachments.join("\n");
   }
 
-  if(a.telefone){
-    const tel = a.telefone.replace(/\D/g,"");
-    txt += `\n📲 Cliente:\nhttps://wa.me/55${tel}\n`;
-  }
+  const url=`https://wa.me/5583991188662?text=${encodeURIComponent(txt)}`;
 
-  const encoded = encodeURIComponent(txt);
-  const telefoneAtendente = "5583991188662";
+  msg("bot","Tudo pronto! 👇");
 
-  const url = `https://wa.me/${telefoneAtendente}?text=${encoded}`;
-
-  msg("bot","✅ Tudo pronto!");
-
-  // 🔥 BOTÃO (MELHOR UX)
-  const btn = document.createElement("button");
-  btn.innerText = "📲 Abrir WhatsApp";
-  btn.style.marginTop = "10px";
-  btn.onclick = () => window.open(url, "_blank");
+  const btn=document.createElement("button");
+  btn.className="whats-btn";
+  btn.innerText="📲 Abrir WhatsApp";
+  btn.onclick=()=>window.open(url,"_blank");
 
   chat.appendChild(btn);
 }
-  document.getElementById("text").addEventListener("keydown", function(e) {
-  if (e.key === "Enter") {
-    e.preventDefault();
-    send();
-    this.focus(); // mantém digitando direto
-  }
-});
 
-/* INIT */
+/* init */
 start();
+input.focus();
 </script>
 
 </body>
