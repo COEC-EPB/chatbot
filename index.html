@@ -240,9 +240,9 @@ fileInput.onchange=async e=>{
     renderAttachments();
   }
 
-  if(flowState==="upload"){
-    finish();
-  }
+  if(flowState==="upload" && ticket.attachments.length){
+  finish();
+}
 };
 
 /* LISTA */
@@ -284,7 +284,6 @@ function finish(){
 
   msg("bot","Gerando envio para WhatsApp...");
 
-  // 🔥 monta mensagem
   let texto = "📋 *Novo Atendimento*\n\n";
 
   if(ticket.flow === "chamado"){
@@ -302,12 +301,6 @@ function finish(){
     }
   }
 
-  if(ticket.flow === "os"){
-    texto += "📋 *Criação de OS*\n";
-    texto += JSON.stringify(ticket.criacaoOS, null, 2) + "\n";
-  }
-
-  // 🔗 anexos
   if(ticket.attachments.length){
     texto += "\n📎 *Anexos:*\n";
     ticket.attachments.forEach(a=>{
@@ -315,18 +308,16 @@ function finish(){
     });
   }
 
-  // 🔥 encode
   const encoded = encodeURIComponent(texto);
 
-  // 👉 COLOCA SEU NÚMERO AQUI (com DDI + DDD)
   const telefone = "5583991825276";
 
   const url = `https://wa.me/${telefone}?text=${encoded}`;
 
   msg("bot","📲 Abrindo WhatsApp...");
 
-  // abre whatsapp
-  window.open(url, "_blank");
+  // 🔥 CORREÇÃO AQUI
+  window.location.href = url;
 
   flowState = null;
 }
