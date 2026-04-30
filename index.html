@@ -89,18 +89,18 @@ function menu(){
 
   const b1=document.createElement("button");
   b1.innerText="📋 Criação de OS";
-  b1.onclick=()=>{startOS()};
+  b1.onclick=()=>startOS();
 
   const b2=document.createElement("button");
   b2.innerText="📞 Abertura de Chamado";
-  b2.onclick=()=>{startChamado()};
+  b2.onclick=()=>startChamado();
 
   box.appendChild(b1);
   box.appendChild(b2);
   chat.appendChild(box);
 }
 
-/* ================= OS ================= */
+/* OS */
 function startOS(){
   ticket.flow="os";
   flowState="os_motivo";
@@ -108,7 +108,7 @@ function startOS(){
   msg("bot","Qual o motivo da solicitação?");
 }
 
-/* ================= CHAMADO ================= */
+/* CHAMADO */
 function startChamado(){
   ticket.flow="chamado";
   flowState="matricula";
@@ -116,7 +116,7 @@ function startChamado(){
   msg("bot","Informe a matrícula:");
 }
 
-/* ================= INPUT ================= */
+/* INPUT */
 function send(){
   const value=input.value.trim();
   if(!value) return;
@@ -124,7 +124,6 @@ function send(){
   msg("me",value);
   input.value="";
 
-  /* ===== CHAMADO ===== */
   if(flowState==="matricula"){
     ticket.chamado.matricula=value;
     flowState="telefone";
@@ -144,18 +143,15 @@ function send(){
     return;
   }
 
-  if(flowState==="dep_nome"){
-    ticket.chamado.nomeDependente=value;
-    flowState="dep_especial";
-    showMenu([
-      ["sim","Dependente especial: SIM"],
-      ["nao","Dependente especial: NÃO"]
-    ]);
+  if(flowState==="bolsa_valor"){
+    ticket.chamado.valor=value;
+    msg("bot","📎 Agora envie os documentos");
+    flowState="upload";
     return;
   }
 
-  if(flowState==="dep_data"){
-    ticket.chamado.dataNascimento=value;
+  if(flowState==="dep_nome"){
+    ticket.chamado.nomeDependente=value;
     flowState="dep_valor";
     msg("bot","Valor do reembolso:");
     return;
@@ -163,13 +159,13 @@ function send(){
 
   if(flowState==="dep_valor"){
     ticket.chamado.valor=value;
-    msg("bot","Envie os documentos (anexar)");
+    msg("bot","📎 Envie documentos");
     flowState="upload";
     return;
   }
 }
 
-/* ================= MENU CLICK ================= */
+/* MENU CLICK */
 function showMenu(options){
   const box=document.createElement("div");
   box.className="menu";
@@ -188,12 +184,18 @@ function menuClick(val,label){
   msg("me",label);
 
   if(val==="reembolso"){
-    flowState="tipoReembolso";
     showMenu([
       ["baba","Auxílio Babá"],
       ["creche","Creche"],
       ["bolsa","Bolsa de Estudos"]
     ]);
+    return;
+  }
+
+  if(val==="bolsa"){
+    ticket.chamado.tipo="bolsa";
+    flowState="bolsa_valor";
+    msg("bot","Valor do reembolso:");
     return;
   }
 
@@ -203,60 +205,9 @@ function menuClick(val,label){
     msg("bot","Nome do dependente:");
     return;
   }
-
-  if(val==="bolsa"){
-    ticket.chamado.tipo="bolsa";
-    flowState="bolsa_valor";
-    if(flowState==="bolsa_valor"){
-  ticket.chamado.valor = value;
-
-  msg("bot","📎 Agora envie os documentos (clique em Anexar)");
-
-  flowState = "upload";
-  fileInput.onchange=async e=>{
-  const files=Array.from(e.target.files);
-
-  for(const file of files){
-
-    msg("bot","Enviando...");
-
-    const form=new FormData();
-    form.append("file",file);
-
-    const res=await fetch(API+"/upload",{method:"POST",body:form});
-    const data=await res.json();
-
-    if(!data.ok){
-      msg("bot","Erro upload");
-      return;
-    }
-
-    ticket.attachments.push({
-      name:file.name,
-      url:data.url
-    });
-
-    msg("me","📎 "+file.name);
-
-    if(file.type.startsWith("image/")){
-      img(data.url);
-    }
-
-    renderAttachments();
-  }
-
-  // 🔥 FINALIZA AUTOMATICAMENTE
-  if(flowState === "upload"){
-    finish();
-  }
-};
-}
-    msg("bot","Valor do reembolso:");
-    return;
-  }
 }
 
-/* ================= UPLOAD ================= */
+/* UPLOAD */
 fileInput.onchange=async e=>{
   const files=Array.from(e.target.files);
 
@@ -288,9 +239,13 @@ fileInput.onchange=async e=>{
 
     renderAttachments();
   }
+
+  if(flowState==="upload"){
+    finish();
+  }
 };
 
-/* ================= LISTA ================= */
+/* LISTA */
 function renderAttachments(){
   const old=document.getElementById("attachments");
   if(old) old.remove();
@@ -324,7 +279,7 @@ function renderAttachments(){
   chat.appendChild(box);
 }
 
-/* ================= FINAL ================= */
+/* FINAL */
 function finish(){
   msg("bot","Resumo:");
 
@@ -336,9 +291,11 @@ function finish(){
 
   msg("bot",resumo);
   msg("bot","Enviado ✔️");
+
+  flowState=null;
 }
 
-/* ================= EVENTS ================= */
+/* EVENTS */
 document.getElementById("attachBtn").onclick=()=>fileInput.click();
 document.getElementById("sendBtn").onclick=send;
 
