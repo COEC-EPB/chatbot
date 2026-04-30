@@ -2,204 +2,226 @@
 
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Chat - Usuário</title>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Chatbot</title>
 
 <style>
-:root{
-  --bg:#0b1220; --card:#0f1b33; --text:#e7eefc;
-  --me:#2b6cff; --bot:#1d2a48;
-}
-body{margin:0;font-family:system-ui;background:#0b1220;color:#fff}
+body{background:#0b1220;color:#fff;font-family:sans-serif;margin:0}
 .wrap{max-width:900px;margin:auto;padding:20px}
-.card{background:#0f1b33;border-radius:12px;overflow:hidden}
-.chat{height:70vh;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:10px}
+.chat{height:70vh;overflow:auto;display:flex;flex-direction:column;gap:10px}
 .msg{padding:10px;border-radius:10px;max-width:80%}
 .me{background:#2b6cff;align-self:flex-end}
 .bot{background:#1d2a48}
-.bar{display:flex;padding:10px;gap:10px}
+.menu button{display:block;margin:5px 0;padding:8px;border:none;background:#2b6cff;color:#fff;border-radius:8px;cursor:pointer}
+.attachments{background:#111;border-radius:10px;padding:10px}
+.attachment-item{display:flex;justify-content:space-between;align-items:center;margin:5px 0}
+.remove-btn{background:red;border:none;color:#fff;padding:3px 8px;border-radius:5px;cursor:pointer}
+img{max-width:200px;border-radius:10px}
+.bar{display:flex;gap:10px;margin-top:10px}
 input{flex:1;padding:10px}
-button{padding:10px;cursor:pointer}
-img.preview{max-width:200px;border-radius:10px;margin-top:5px}
-.menu-box{background:#1d2a48;padding:10px;border-radius:10px}
-.menu-btn{margin:5px 0;padding:8px;border:none;border-radius:8px;background:#2b6cff;color:#fff;cursor:pointer}
-.upload-box{background:#2a2a00;padding:10px;border-radius:10px}
+button{padding:10px}
 </style>
 
 </head>
 
 <body>
 <div class="wrap">
-<div class="card">
 <div id="chat" class="chat"></div>
 
 <div class="bar">
 <input id="text" placeholder="Digite..." />
-<input id="fileInput" type="file" multiple accept="image/*,.pdf" hidden />
-<button id="attachBtn">Anexar</button>
-<button id="send">Enviar</button>
-</div>
+<input id="fileInput" type="file" hidden multiple />
+<button onclick="fileInput.click()">Anexar</button>
+<button onclick="send()">Enviar</button>
 </div>
 </div>
 
 <script>
-const API_BASE = "https://chatbot.pedro-fillype.workers.dev";
+const API = "https://chatbot.pedro-fillype.workers.dev";
 
-const $chat = document.getElementById("chat");
-const $text = document.getElementById("text");
-const $send = document.getElementById("send");
-const $fileInput = document.getElementById("fileInput");
-const $attachBtn = document.getElementById("attachBtn");
+const chat = document.getElementById("chat");
+const fileInput = document.getElementById("fileInput");
 
 const ticket = {
-  flow: null,
-  attachments: [],
-  criacaoOS: {},
-  aberturaChamado: {}
+  flow:null,
+  attachments:[],
+  data:{}
 };
 
 /* ================= UI ================= */
-function addMsg(type, text){
-  const div = document.createElement("div");
-  div.className = "msg " + type;
-  div.innerText = text;
-  $chat.appendChild(div);
-  $chat.scrollTop = $chat.scrollHeight;
+function msg(type,text){
+  const d=document.createElement("div");
+  d.className="msg "+type;
+  d.innerText=text;
+  chat.appendChild(d);
+  chat.scrollTop=chat.scrollHeight;
 }
 
-function addImage(url){
-  const div = document.createElement("div");
-  div.className = "msg bot";
-
-  const img = document.createElement("img");
-  img.src = url;
-  img.className = "preview";
-
-  div.appendChild(img);
-  $chat.appendChild(div);
-  $chat.scrollTop = $chat.scrollHeight;
-}
-
-function addMenu(title, options){
-  const box = document.createElement("div");
-  box.className = "menu-box";
-
-  box.innerHTML = `<div>${title}</div>`;
-
-  options.forEach(opt=>{
-    const btn = document.createElement("button");
-    btn.className = "menu-btn";
-    btn.innerText = opt.label;
-    btn.onclick = ()=> handleMenu(opt.value, opt.label);
-    box.appendChild(btn);
-  });
-
-  $chat.appendChild(box);
-  $chat.scrollTop = $chat.scrollHeight;
-}
-
-function addUploadPrompt(){
-  const div = document.createElement("div");
-  div.className = "upload-box";
-  div.innerText = "📎 Clique em ANEXAR para enviar imagens ou PDF";
-  $chat.appendChild(div);
-}
-
-/* ================= UPLOAD ================= */
-async function handleSelectedFiles(files){
-  const list = Array.from(files || []);
-  if(!list.length) return;
-
-  for(const file of list){
-
-    addMsg("bot","📎 Enviando arquivo...");
-
-    const form = new FormData();
-    form.append("file", file);
-
-    try{
-      const resp = await fetch(API_BASE + "/upload", {
-        method: "POST",
-        body: form
-      });
-
-      const data = await resp.json();
-      console.log("UPLOAD:", data);
-
-      if (!data.ok || !data.url) {
-        addMsg("bot","❌ Erro no upload");
-        return;
-      }
-
-      ticket.attachments.push({
-        name:file.name,
-        url:data.url
-      });
-
-      addMsg("me","📎 "+file.name);
-
-      if(file.type.startsWith("image/")){
-        addImage(data.url);
-      }
-
-    }catch(e){
-      addMsg("bot","Erro ao enviar arquivo");
-    }
-  }
-
-  $fileInput.value = "";
+function img(url){
+  const d=document.createElement("div");
+  d.className="msg bot";
+  const i=document.createElement("img");
+  i.src=url;
+  d.appendChild(i);
+  chat.appendChild(d);
 }
 
 /* ================= MENU ================= */
-function handleMenu(value, label){
-  addMsg("me", label);
+function menu(){
+  msg("bot","Escolha:");
+  const box=document.createElement("div");
+  box.className="menu";
 
-  if(value === "criacao_os"){
-    ticket.flow = "criacao_os";
-    addMsg("bot","Qual o motivo da solicitação?");
-  }
+  const b1=document.createElement("button");
+  b1.innerText="Criar OS";
+  b1.onclick=()=>{ticket.flow="os";msg("me","Criar OS");askOS();};
 
-  if(value === "abertura_chamado"){
-    ticket.flow = "abertura_chamado";
-    addMsg("bot","Informe a matrícula:");
-  }
+  const b2=document.createElement("button");
+  b2.innerText="Abrir Chamado";
+  b2.onclick=()=>{ticket.flow="chamado";msg("me","Abrir Chamado");askChamado();};
+
+  box.appendChild(b1);
+  box.appendChild(b2);
+  chat.appendChild(box);
 }
 
-/* ================= ENVIO ================= */
+/* ================= FLUXO ================= */
+function askOS(){
+  msg("bot","Informe o CDC:");
+  ticket.step="cdc";
+}
+
+function askChamado(){
+  msg("bot","Informe matrícula:");
+  ticket.step="matricula";
+}
+
+/* ================= INPUT ================= */
 function send(){
-  const txt = $text.value.trim();
-  if(!txt) return;
+  const input=document.getElementById("text");
+  const value=input.value.trim();
+  if(!value)return;
 
-  addMsg("me", txt);
-  $text.value = "";
+  msg("me",value);
+  input.value="";
 
-  if(txt.toLowerCase() === "menu"){
-    start();
+  if(ticket.step==="cdc"){
+    ticket.data.cdc=value;
+    ticket.step="endereco";
+    msg("bot","Informe endereço:");
     return;
   }
 
-  if(ticket.flow){
-    addMsg("bot","Continue preenchendo ou envie anexos.");
+  if(ticket.step==="endereco"){
+    ticket.data.endereco=value;
+    ticket.step="telefone";
+    msg("bot","Telefone:");
+    return;
+  }
+
+  if(ticket.step==="telefone"){
+    ticket.data.telefone=value;
+    finish();
+    return;
+  }
+
+  if(ticket.step==="matricula"){
+    ticket.data.matricula=value;
+    finish();
+    return;
   }
 }
 
-/* ================= INIT ================= */
-function start(){
-  addMsg("bot","Escolha uma opção:");
-  addMenu("Menu:",[
-    {value:"criacao_os", label:"1 - Criação de OS"},
-    {value:"abertura_chamado", label:"2 - Abertura de Chamado"}
-  ]);
+/* ================= UPLOAD ================= */
+fileInput.onchange=async e=>{
+  const files=Array.from(e.target.files);
+
+  for(const file of files){
+
+    msg("bot","Enviando...");
+
+    const form=new FormData();
+    form.append("file",file);
+
+    const res=await fetch(API+"/upload",{method:"POST",body:form});
+    const data=await res.json();
+
+    if(!data.ok){
+      msg("bot","Erro upload");
+      continue;
+    }
+
+    ticket.attachments.push({
+      name:file.name,
+      url:data.url
+    });
+
+    msg("me","📎 "+file.name);
+
+    if(file.type.startsWith("image/")){
+      img(data.url);
+    }
+
+    renderAttachments();
+  }
+};
+
+/* ================= LISTA ================= */
+function renderAttachments(){
+  const old=document.getElementById("attachments");
+  if(old) old.remove();
+
+  if(!ticket.attachments.length) return;
+
+  const box=document.createElement("div");
+  box.className="attachments";
+  box.id="attachments";
+
+  box.innerHTML="<b>Anexos:</b>";
+
+  ticket.attachments.forEach((a,i)=>{
+    const item=document.createElement("div");
+    item.className="attachment-item";
+
+    const name=document.createElement("span");
+    name.innerText=a.name;
+
+    const remove=document.createElement("button");
+    remove.className="remove-btn";
+    remove.innerText="X";
+    remove.onclick=()=>{
+      ticket.attachments.splice(i,1);
+      renderAttachments();
+    };
+
+    item.appendChild(name);
+    item.appendChild(remove);
+    box.appendChild(item);
+  });
+
+  chat.appendChild(box);
 }
 
-/* ================= EVENTS ================= */
-$attachBtn.onclick = ()=> $fileInput.click();
-$fileInput.onchange = (e)=> handleSelectedFiles(e.target.files);
-$send.onclick = send;
-$text.onkeydown = (e)=> e.key==="Enter" && send();
+/* ================= FINAL ================= */
+function finish(){
+  msg("bot","Resumo:");
 
-start();
+  let resumo=JSON.stringify(ticket.data,null,2);
+
+  if(ticket.attachments.length){
+    resumo += "\nAnexos:\n" + ticket.attachments.map(a=>a.url).join("\n");
+  }
+
+  msg("bot",resumo);
+
+  msg("bot","Enviado ao atendente ✔️");
+
+  console.log("FINAL:",ticket);
+}
+
+/* INIT */
+menu();
 </script>
 
 </body>
