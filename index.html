@@ -79,39 +79,25 @@ function img(url){
   chat.appendChild(d);
 }
 
-/* MENU */
+/* ================= MENU ================= */
 function menu(){
   msg("bot","Escolha uma opção:");
 
-  const box=document.createElement("div");
-  box.className="menu";
-
-  const b1=document.createElement("button");
-  b1.innerText="📋 Criação de OS";
-  b1.onclick=()=>{
-    msg("me","Criação de OS");
-    msg("bot","Fluxo de OS ainda será implementado...");
-  };
-
-  const b2=document.createElement("button");
-  b2.innerText="📞 Abertura de Chamado";
-  b2.onclick=startChamado;
-
-  box.appendChild(b1);
-  box.appendChild(b2);
-
-  chat.appendChild(box);
+  showMenu([
+    ["os","📋 Criação de OS"],
+    ["chamado","📞 Abertura de Chamado"]
+  ]);
 }
 
-/* INICIO */
+/* ================= INICIO ================= */
 function startChamado(){
   ticket.flow="chamado";
   flowState="matricula";
-  msg("me","Abertura de Chamado");
+  msg("me","📞 Abertura de Chamado");
   msg("bot","Informe a matrícula:");
 }
 
-/* INPUT */
+/* ================= INPUT ================= */
 function send(){
   const value=input.value.trim();
   if(!value) return;
@@ -158,7 +144,7 @@ function send(){
   }
 }
 
-/* MENU CLICK */
+/* ================= MENU CLICK ================= */
 function showMenu(options){
   const box=document.createElement("div");
   box.className="menu";
@@ -175,6 +161,16 @@ function showMenu(options){
 
 function menuClick(val,label){
   msg("me",label);
+
+  if(val==="os"){
+    msg("bot","🚧 Fluxo de Criação de OS ainda será implementado");
+    return;
+  }
+
+  if(val==="chamado"){
+    startChamado();
+    return;
+  }
 
   if(val==="reembolso"){
     showMenu([
@@ -200,7 +196,7 @@ function menuClick(val,label){
   }
 }
 
-/* UPLOAD */
+/* ================= UPLOAD ================= */
 fileInput.onchange=async e=>{
   const files=Array.from(e.target.files);
 
@@ -238,7 +234,7 @@ fileInput.onchange=async e=>{
   }
 };
 
-/* LISTA */
+/* ================= LISTA ================= */
 function renderAttachments(){
   const old=document.getElementById("attachments");
   if(old) old.remove();
@@ -272,7 +268,7 @@ function renderAttachments(){
   chat.appendChild(box);
 }
 
-/* FINAL */
+/* ================= FINAL ================= */
 function finish(){
 
   let texto = "📋 *Novo Atendimento*\n\n";
@@ -312,7 +308,7 @@ function finish(){
   window.location.href = url;
 }
 
-/* EVENTS */
+/* ================= EVENTS ================= */
 document.getElementById("attachBtn").onclick=()=>fileInput.click();
 document.getElementById("sendBtn").onclick=send;
 
