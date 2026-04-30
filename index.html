@@ -127,141 +127,178 @@ img{
 </div>
 </div>
 
+<!-- CÓDIGO REDUZIDO PARA FOCO NAS PARTES IMPORTANTES -->
+
 <script>
-const API = "https://chatbot.pedro-fillype.workers.dev";
 
-const chat = document.getElementById("chat");
-const input = document.getElementById("text");
-const fileInput = document.getElementById("fileInput");
-const attachBtn = document.getElementById("attachBtn");
-const sendBtn = document.getElementById("sendBtn");
-
+let flowState = null;
 const ticket = {
   flow:null,
   attachments:[],
-  data:{},
-  step:null
+  criacaoOS:{},
+  chamado:{}
 };
 
-/* ================= UI ================= */
-function msg(type,text){
-  const d=document.createElement("div");
-  d.className="msg "+type;
-  d.innerText=text;
-
-  chat.appendChild(d);
-
-  // scroll suave
-  chat.scrollTo({
-    top: chat.scrollHeight,
-    behavior: "smooth"
-  });
-}
-
-function img(url){
-  const d=document.createElement("div");
-  d.className="msg bot";
-  const i=document.createElement("img");
-  i.src=url;
-  d.appendChild(i);
-  chat.appendChild(d);
-}
-
 /* ================= MENU ================= */
-function menu(){
-  msg("bot","👋 Olá! Escolha uma opção:");
-
-  const box=document.createElement("div");
-  box.className="menu";
-
-  const b1=document.createElement("button");
-  b1.innerText="📋 Criar OS";
-  b1.onclick=()=>{
-    ticket.flow="os";
-    msg("me","📋 Criar OS");
-    ticket.step="cdc";
-    msg("bot","Informe o CDC:");
-  };
-
-  const b2=document.createElement("button");
-  b2.innerText="📞 Abrir Chamado";
-  b2.onclick=()=>{
-    ticket.flow="chamado";
-    msg("me","📞 Abrir Chamado");
-    ticket.step="matricula";
-    msg("bot","Informe matrícula:");
-  };
-
-  box.appendChild(b1);
-  box.appendChild(b2);
-  chat.appendChild(box);
+function showMainMenu(){
+  addMenu("Escolha uma opção:",[
+    {value:"criacao_os",label:"1 - Criação de OS"},
+    {value:"abertura_chamado",label:"2 - Abertura de Chamado"}
+  ]);
 }
 
-  function typing(){
-  const d=document.createElement("div");
-  d.className="msg bot";
-  d.innerText="digitando...";
-  chat.appendChild(d);
+/* ================= SELEÇÃO MENU ================= */
+function handleMenu(value,label){
+  addMsg("me",label);
 
-  setTimeout(()=>d.remove(),800);
+  if(value==="criacao_os"){
+    ticket.flow="criacao_os";
+    flowState="criacao_os_motivo";
+    addMsg("bot","Qual o motivo da solicitação?");
+    return;
+  }
+
+  if(value==="abertura_chamado"){
+    ticket.flow="chamado";
+    flowState="chamado_matricula";
+    addMsg("bot","Informe a matrícula:");
+    return;
+  }
+
+  /* ================= CHAMADO ================= */
+
+  if(value==="tipo_chamado:reembolso"){
+    flowState="reembolso_tipo";
+    addMenu("Qual tipo de reembolso?",[
+      {value:"reembolso:baba",label:"Auxílio Babá"},
+      {value:"reembolso:creche",label:"Creche/Educacional"},
+      {value:"reembolso:bolsa",label:"Bolsa de Estudos"},
+      {value:"reembolso:acidente",label:"Acidente de Trabalho"}
+    ]);
+    return;
+  }
+
+  if(value==="reembolso:baba"){
+    ticket.chamado.tipo="baba";
+    flowState="dep_nome";
+    addMsg("bot","Nome do dependente:");
+    return;
+  }
+
+  if(value==="reembolso:creche"){
+    ticket.chamado.tipo="creche";
+    flowState="dep_nome";
+    addMsg("bot","Nome do dependente:");
+    return;
+  }
+
+  if(value==="reembolso:bolsa"){
+    ticket.chamado.tipo="bolsa";
+    flowState="bolsa_valor";
+    addMsg("bot","Qual o valor do reembolso?");
+    return;
+  }
+
+  if(value==="reembolso:acidente"){
+    ticket.chamado.tipo="acidente";
+    flowState="acidente_valor";
+    addMsg("bot","Qual o valor do reembolso?");
+    return;
+  }
 }
 
 /* ================= INPUT ================= */
-function send(){
-  const value=input.value.trim();
-  if(!value){
-    input.focus();
+function handleFlowInput(txt){
+
+  /* ===== CHAMADO ===== */
+
+  if(flowState==="chamado_matricula"){
+    ticket.chamado.matricula=txt;
+    flowState="chamado_tel";
+    addMsg("bot","Telefone:");
     return;
   }
 
-  msg("me",value);
-  input.value="";
-  input.focus();
-
-  if(ticket.step==="cdc"){
-    ticket.data.cdc=value;
-    ticket.step="endereco";
-    msg("bot","Informe endereço:");
+  if(flowState==="chamado_tel"){
+    ticket.chamado.telefone=txt;
+    flowState="tipo_chamado";
+    addMenu("Qual chamado deseja?",[
+      {value:"tipo_chamado:reembolso",label:"Reembolso"},
+      {value:"tipo_chamado:senha",label:"Reset Senha"},
+      {value:"tipo_chamado:pda",label:"PDA problema"}
+    ]);
     return;
   }
 
-  if(ticket.step==="endereco"){
-    ticket.data.endereco=value;
-    ticket.step="telefone";
-    msg("bot","Telefone:");
+  /* ===== DEPENDENTE ===== */
+
+  if(flowState==="dep_nome"){
+    ticket.chamado.nomeDependente=txt;
+    flowState="dep_especial";
+    addMenu("Dependente é especial?",[
+      {value:"dep:sim",label:"SIM"},
+      {value:"dep:nao",label:"NÃO"}
+    ]);
     return;
   }
 
-  if(ticket.step==="telefone"){
-    ticket.data.telefone=value;
-    finish();
+  if(flowState==="dep_data"){
+    ticket.chamado.dataNascimento=txt;
+    flowState="dep_valor";
+    addMsg("bot","Valor do reembolso:");
     return;
   }
 
-  if(ticket.step==="matricula"){
-    ticket.data.matricula=value;
+  if(flowState==="dep_valor"){
+    ticket.chamado.valor=txt;
+    addMsg("bot","Agora envie os documentos (anexos).");
+    flowState="upload_docs";
+    return;
+  }
+
+  /* ===== BOLSA ===== */
+
+  if(flowState==="bolsa_valor"){
+    ticket.chamado.valor=txt;
+    flowState="bolsa_tipo";
+    addMenu("Tipo do curso:",[
+      {value:"curso:graduacao",label:"Graduação"},
+      {value:"curso:pos",label:"Pós"},
+      {value:"curso:tecnico",label:"Técnico"}
+    ]);
+    return;
+  }
+
+  if(flowState==="bolsa_tipo"){
+    ticket.chamado.tipoCurso=txt;
+    addMsg("bot","Envie os documentos.");
+    flowState="upload_docs";
+    return;
+  }
+
+  /* ===== FINAL ===== */
+  if(flowState==="upload_docs"){
     finish();
     return;
   }
 }
 
 /* ================= UPLOAD ================= */
-fileInput.onchange=async e=>{
-  const files=Array.from(e.target.files);
+async function handleSelectedFiles(files){
 
   for(const file of files){
 
-    msg("bot","📎 Enviando...");
+    addMsg("bot","Enviando...");
 
     const form=new FormData();
     form.append("file",file);
 
-    const res=await fetch(API+"/upload",{method:"POST",body:form});
+    const res=await fetch(API_BASE+"/upload",{method:"POST",body:form});
     const data=await res.json();
 
     if(!data.ok){
-      msg("bot","Erro upload");
-      continue;
+      addMsg("bot","Erro upload");
+      return;
     }
 
     ticket.attachments.push({
@@ -269,86 +306,33 @@ fileInput.onchange=async e=>{
       url:data.url
     });
 
-    msg("me","📎 "+file.name);
+    addMsg("me","📎 "+file.name);
 
     if(file.type.startsWith("image/")){
-      img(data.url);
+      addImage(data.url);
     }
 
     renderAttachments();
   }
-};
-
-/* ================= LISTA ================= */
-function renderAttachments(){
-  const old=document.getElementById("attachments");
-  if(old) old.remove();
-
-  if(!ticket.attachments.length) return;
-
-  const box=document.createElement("div");
-  box.className="attachments";
-  box.id="attachments";
-
-  box.innerHTML="<b>Anexos:</b>";
-
-  ticket.attachments.forEach((a,i)=>{
-    const item=document.createElement("div");
-    item.className="attachment-item";
-
-    const name=document.createElement("span");
-    name.innerText=a.name;
-
-    const remove=document.createElement("button");
-    remove.className="remove-btn";
-    remove.innerText="X";
-    remove.onclick=()=>{
-      ticket.attachments.splice(i,1);
-      renderAttachments();
-    };
-
-    item.appendChild(name);
-    item.appendChild(remove);
-    box.appendChild(item);
-  });
-
-  chat.appendChild(box);
 }
 
 /* ================= FINAL ================= */
 function finish(){
-  msg("bot","Resumo:");
 
-  let resumo=JSON.stringify(ticket.data,null,2);
+  addMsg("bot","Resumo:");
+
+  let resumo = JSON.stringify(ticket,null,2);
 
   if(ticket.attachments.length){
     resumo += "\n\nAnexos:\n" + ticket.attachments.map(a=>a.url).join("\n");
   }
 
-  msg("bot",resumo);
-  msg("bot","Enviado ao atendente ✔️");
-
-  console.log("FINAL:",ticket);
-
-  ticket.step=null;
+  addMsg("bot",resumo);
+  addMsg("bot","Enviado ao atendente ✔️");
 }
 
-/* ================= EVENTS ================= */
-attachBtn.onclick=()=>fileInput.click();
-sendBtn.onclick=send;
-
-input.addEventListener("keydown",e=>{
-  if(e.key==="Enter") send();
-});
-
-// 🔥 CORREÇÃO DO INPUT
-input.focus();
-
-document.addEventListener("click",()=>{
-  setTimeout(()=>input.focus(),100);
-});
-  menu();
 </script>
+
 
 </body>
 </html>
